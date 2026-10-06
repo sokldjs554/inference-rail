@@ -52,8 +52,18 @@ jobs:
             sleep 2
           done
 
-          curl -fsS 'http://127.0.0.1:9090/api/v1/query?query=inference_requests_total'             | tee docs/evidence/compose-runtime/prometheus-query.json
-          curl -fsS http://127.0.0.1:3000/api/health             | tee docs/evidence/compose-runtime/grafana-health.json
+          METRIC_FOUND=0
+          for i in $(seq 1 40); do
+            curl -fsS 'http://127.0.0.1:9090/api/v1/query?query=inference_requests_total' | tee docs/evidence/compose-runtime/prometheus-query.json
+            if python -c 'import json; from pathlib import Path; d=json.loads(Path("docs/evidence/compose-runtime/prometheus-query.json").read_text()); raise SystemExit(0 if d.get("data",{}).get("result") else 1)'; then
+              METRIC_FOUND=1
+              break
+            fi
+            sleep 1
+          done
+          test "$METRIC_FOUND" -eq 1
+
+          curl -fsS http://127.0.0.1:3000/api/health | tee docs/evidence/compose-runtime/grafana-health.json
 
           TRACE_FOUND=0
           for i in $(seq 1 40); do
