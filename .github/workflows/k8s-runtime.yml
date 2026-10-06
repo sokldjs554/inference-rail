@@ -1,0 +1,65 @@
+name: k8s-runtime
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/k8s-runtime.yml"
+      - "app/**"
+      - "k8s/**"
+      - "scripts/k8s_runtime_verify.sh"
+      - "Dockerfile"
+      - "pyproject.toml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: k8s-runtime-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  kind-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install kind v0.33.0
+        run: |
+          curl -fsSLo kind https://kind.sigs.k8s.io/dl/v0.33.0/kind-linux-amd64
+          chmod +x kind
+          sudo mv kind /usr/local/bin/kind
+          kind version
+
+      - name: Build app image
+        run: docker build --build-arg GIT_SHA=${{ github.sha }} -t inference-rail:k8s .
+
+      - name: Create Kubernetes 1.37 cluster
+        run: |
+          kind create cluster --name inference-rail --image kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5
+          kind load docker-image inference-rail:k8s --name inference-rail
+          kubectl cluster-info
+          kubectl get nodes -o wide
+
+      - name: Verify rollout, HPA and KEDA scale-out
+        env:
+          GIT_SHA: ${{ github.sha }}
+        run: bash scripts/k8s_runtime_verify.sh
+
+      - name: Collect cluster diagnostics
+        if: always()
+        run: |
+          mkdir -p docs/evidence/runtime
+          kubectl get all -A -o wide > docs/evidence/runtime/k8s-all.txt || true
+          kubectl get hpa -A -o wide > docs/evidence/runtime/hpa.txt || true
+          kubectl get scaledobject -A -o yaml > docs/evidence/runtime/scaledobjects.yaml || true
+          kubectl top pods -A > docs/evidence/runtime/top-pods.txt || true
+          kubectl describe deployment inference-rail > docs/evidence/runtime/deployment.txt || true
+          kubectl logs -n keda deploy/keda-operator --tail=250 > docs/evidence/runtime/keda-operator.log || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: k8s-runtime-evidence
+          path: docs/evidence/runtime/
