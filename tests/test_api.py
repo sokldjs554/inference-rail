@@ -80,7 +80,7 @@ def test_policy_lab_compares_two_real_policy_paths():
         response = client.post("/v1/policy-lab", json={"profile": "steady"})
         assert response.status_code == 200
         body = response.json()
-        assert set(body["policies"]) == {"latency_guard", "throughput_guard"}
+        assert set(body["policies"]) == {\n            "latency_guard",\n            "throughput_guard",\n            "availability_guard",\n        }
         for result in body["policies"].values():
             assert "p95_ms" in result
             assert "throughput_rps" in result
