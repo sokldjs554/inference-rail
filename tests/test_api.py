@@ -10,10 +10,10 @@ def test_health_and_prediction():
         demo = client.get("/")
         assert demo.status_code == 200
         assert "InferenceRail" in demo.text
-        assert "Request Flight Recorder" in demo.text
-        assert "Shadow Lane" in demo.text
-        assert "Resilience Policy Duel" in demo.text
-        assert "MISSION CONTROL" in demo.text
+        assert "대규모 AI 추론을" in demo.text
+        assert "SLO Governor" in demo.text
+        assert "Decision Receipt" in demo.text
+        assert "backend calls / 100 success" in demo.text
         build_body = client.get("/ops/build").json()
         assert build_body["app"] == "InferenceRail"
         assert build_body["version"] == "0.5.0"

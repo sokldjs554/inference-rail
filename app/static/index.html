@@ -1,72 +1,212 @@
 <!doctype html>
 <html lang="ko">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>InferenceRail · AI Serving Mission Control</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>InferenceRail · SLO-aware ML Backend Gateway</title>
 <style>
-:root{--bg:#070b11;--surface:#0c121a;--surface2:#111925;--line:#243140;--text:#eef4f8;--muted:#8291a2;--signal:#b7ff5a;--cyan:#69d8ff;--amber:#ffcb66;--red:#ff7a7a;--mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text)}button{font:inherit}.shell{max-width:1420px;margin:auto;padding:18px 18px 54px}.topline{height:36px;border:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 12px;font:11px var(--mono);color:var(--muted);background:#090e15}.brand{display:flex;align-items:center;gap:10px}.brandmark{width:10px;height:10px;border-radius:50%;background:var(--signal);box-shadow:0 0 18px rgba(183,255,90,.75)}.topstatus{display:flex;gap:18px;align-items:center}.live{color:var(--signal)}.warn{color:var(--amber)}.danger{color:var(--red)}
-.hero{display:grid;grid-template-columns:1.25fr .75fr;border-left:1px solid var(--line);border-right:1px solid var(--line);border-bottom:1px solid var(--line)}.hero-main{padding:34px 30px 30px}.kicker{font:700 11px var(--mono);letter-spacing:.16em;color:var(--cyan)}h1{font-size:52px;line-height:.98;letter-spacing:-.055em;margin:12px 0 16px;max-width:820px}.hero p{max-width:760px;color:#aebbc8;font-size:15px;line-height:1.75}.disclaimer{padding:26px;border-left:1px solid var(--line);display:flex;flex-direction:column;justify-content:flex-end;background:linear-gradient(145deg,#0c121a,#090e15)}.disclaimer .label{font:10px var(--mono);letter-spacing:.15em;color:var(--amber)}.disclaimer strong{font-size:15px;margin:8px 0}.disclaimer p{font-size:12px;line-height:1.6;color:var(--muted);margin:0}
-.marquee{border:1px solid var(--line);border-top:0;display:grid;grid-template-columns:repeat(6,1fr);background:#090e15}.tick{padding:12px 14px;border-right:1px solid var(--line)}.tick:last-child{border-right:0}.tick span{display:block;font:9px var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:.12em}.tick b{font:700 14px var(--mono);display:block;margin-top:5px;overflow-wrap:anywhere}
-.workspace{margin-top:18px;border:1px solid var(--line);display:grid;grid-template-columns:245px 1fr 285px;min-height:590px}.left-rail,.right-rail{background:#090e15}.left-rail{border-right:1px solid var(--line)}.right-rail{border-left:1px solid var(--line)}.rail-title{padding:14px 16px;border-bottom:1px solid var(--line);font:700 10px var(--mono);letter-spacing:.14em;color:var(--muted)}.cmd{width:100%;text-align:left;padding:15px 16px;border:0;border-bottom:1px solid #182330;background:transparent;color:var(--text);cursor:pointer;display:grid;grid-template-columns:26px 1fr;gap:8px}.cmd:hover{background:#111925}.cmd .key{font:10px var(--mono);color:var(--signal);padding-top:2px}.cmd strong{font-size:13px;display:block}.cmd small{font-size:10.5px;color:var(--muted);line-height:1.5;display:block;margin-top:4px}.cmd.hot{background:linear-gradient(90deg,rgba(183,255,90,.09),transparent)}
-.flight{padding:22px 24px}.flight-head{display:flex;justify-content:space-between;gap:16px;align-items:end}.flight-head h2{margin:0;font-size:22px;letter-spacing:-.03em}.flight-head p{margin:4px 0 0;font-size:11px;color:var(--muted)}.flight-id{font:11px var(--mono);color:var(--cyan)}.track{margin-top:30px;position:relative;display:grid;grid-template-columns:repeat(6,1fr);gap:0}.track:before{content:"";position:absolute;left:7%;right:7%;top:18px;height:1px;background:var(--line)}.station{position:relative;text-align:center;z-index:1}.dot{width:37px;height:37px;margin:auto;border-radius:50%;border:1px solid #36485d;background:#0c121a;display:grid;place-items:center;font:10px var(--mono);color:var(--muted);transition:.25s}.station.hit .dot{border-color:var(--signal);color:#081005;background:var(--signal);box-shadow:0 0 22px rgba(183,255,90,.24)}.station.fallback .dot{border-color:var(--amber);background:var(--amber)}.station strong{font-size:10.5px;display:block;margin-top:10px}.station em{font:9px var(--mono);font-style:normal;color:var(--muted);display:block;margin-top:3px}
-.tape{margin-top:28px;border-top:1px solid var(--line);font-family:var(--mono)}.tape-row{display:grid;grid-template-columns:68px 142px 1fr;gap:10px;padding:9px 6px;border-bottom:1px solid #16202b;font-size:10.5px}.tape-row .t{color:var(--signal)}.tape-row .stage{color:var(--cyan)}.tape-row .detail{color:#9caaba}.empty{padding:24px 4px;color:var(--muted);font-size:12px}.rail-stat{padding:14px 16px;border-bottom:1px solid #182330}.rail-stat span{font:9px var(--mono);color:var(--muted);letter-spacing:.1em;text-transform:uppercase}.rail-stat b{display:block;font:700 17px var(--mono);margin-top:5px}.recent{max-height:270px;overflow:auto}.recent button{display:block;width:100%;text-align:left;background:transparent;border:0;border-bottom:1px solid #182330;padding:10px 12px;color:#c9d4df;cursor:pointer;font:10px var(--mono)}.recent button:hover{background:#111925}.recent small{color:var(--muted)}
-.lab-grid{display:grid;grid-template-columns:1fr 1fr;margin-top:18px;border:1px solid var(--line)}.lab{padding:22px;background:#090e15}.lab+.lab{border-left:1px solid var(--line)}.lab-head{display:flex;justify-content:space-between;align-items:start;gap:14px}.lab h3{font-size:18px;margin:0}.lab p{font-size:11.5px;color:var(--muted);line-height:1.6;margin:6px 0 0}.action{border:1px solid #3a4b5e;background:#111925;color:var(--text);padding:9px 12px;cursor:pointer;font:700 10px var(--mono);letter-spacing:.04em}.action:hover{border-color:var(--signal)}.action.primary{background:var(--signal);color:#071005;border-color:var(--signal)}.shadow-lanes{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}.lane{padding:14px;border:1px solid #223041}.lane .v{font:10px var(--mono);color:var(--cyan)}.lane strong{font-size:21px;display:block;margin-top:7px}.lane .meta{font:10px var(--mono);color:var(--muted);margin-top:8px}.gate{margin-top:10px;padding:10px;border-left:2px solid var(--signal);background:#0c1410;font:10.5px var(--mono);color:#bfe89c}.profiles{display:flex;gap:6px;margin-top:14px;flex-wrap:wrap}.profiles button{border:1px solid #2a394b;background:transparent;color:#aebbc8;padding:7px 9px;font:10px var(--mono);cursor:pointer}.profiles button:hover{border-color:var(--cyan)}.duel{margin-top:14px}.duel-row{display:grid;grid-template-columns:100px 1fr 58px;gap:10px;align-items:center;margin:9px 0}.duel-row span{font:10px var(--mono);color:var(--muted)}.bar{height:8px;background:#16222e;position:relative}.bar i{position:absolute;inset:0 auto 0 0;background:var(--cyan);width:0}.bar.alt i{background:var(--signal)}.duel-row b{font:10px var(--mono);text-align:right}.winner{margin-top:11px;font:11px var(--mono);color:var(--signal)}
-.proof{margin-top:18px;border:1px solid var(--line);display:grid;grid-template-columns:220px 1fr}.proof-title{padding:22px;border-right:1px solid var(--line);background:#090e15}.proof-title h3{font-size:17px;margin:0}.proof-title p{font-size:11px;color:var(--muted);line-height:1.55}.proof-ledger{display:grid;grid-template-columns:repeat(4,1fr)}.proof-item{padding:18px;border-right:1px solid var(--line)}.proof-item:last-child{border-right:0}.proof-item span{font:9px var(--mono);color:var(--muted);letter-spacing:.08em}.proof-item b{display:block;font:16px var(--mono);margin-top:7px}.proof-item small{font-size:10px;color:#91a0af;line-height:1.45;display:block;margin-top:7px}.footer{padding:16px 2px;color:#687889;font:9.5px var(--mono);display:flex;justify-content:space-between}
-@media(max-width:1050px){.workspace{grid-template-columns:210px 1fr}.right-rail{grid-column:1/-1;border-left:0;border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(3,1fr)}.recent{display:none}.lab-grid{grid-template-columns:1fr}.lab+.lab{border-left:0;border-top:1px solid var(--line)}}@media(max-width:760px){.shell{padding:10px}.hero{grid-template-columns:1fr}.disclaimer{border-left:0;border-top:1px solid var(--line)}h1{font-size:38px}.marquee{grid-template-columns:repeat(3,1fr)}.workspace{grid-template-columns:1fr}.left-rail{border-right:0;border-bottom:1px solid var(--line)}.track{grid-template-columns:repeat(3,1fr);row-gap:24px}.track:before{display:none}.right-rail{grid-template-columns:repeat(2,1fr)}.lab-grid,.proof{grid-template-columns:1fr}.proof-title{border-right:0;border-bottom:1px solid var(--line)}.proof-ledger{grid-template-columns:repeat(2,1fr)}}
+:root{
+  --paper:#f3f2ed;--ink:#121212;--muted:#6b6b66;--line:#cbc9c0;--blue:#155eef;
+  --blue-soft:#e8efff;--green:#147d4f;--red:#b42318;--amber:#9a6700;--panel:#faf9f5;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
+  font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif
+}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink)}
+button,input{font:inherit}.page{max-width:1280px;margin:auto;padding:18px 24px 70px}
+.top{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--ink);
+  padding:0 0 13px;font:11px var(--mono);letter-spacing:.04em}
+.brand{font-weight:800}.live{display:flex;gap:18px;color:var(--muted)}.ready{color:var(--green)}
+.hero{display:grid;grid-template-columns:1.15fr .85fr;border-bottom:1px solid var(--ink)}
+.hero-copy{padding:58px 44px 52px 0}.eyebrow{font:700 11px var(--mono);letter-spacing:.14em;color:var(--blue)}
+h1{font-size:64px;line-height:.98;letter-spacing:-.065em;margin:16px 0 20px;max-width:780px}
+.lead{font-size:18px;line-height:1.72;max-width:760px;margin:0;color:#30302d}
+.weapon{margin-top:30px;border-left:4px solid var(--blue);padding:4px 0 4px 18px;max-width:760px}
+.weapon b{font-size:15px}.weapon p{font-size:13px;line-height:1.65;color:var(--muted);margin:6px 0 0}
+.hero-action{display:flex;align-items:center;gap:12px;margin-top:28px;flex-wrap:wrap}
+.primary{background:var(--ink);color:white;border:1px solid var(--ink);padding:13px 18px;cursor:pointer;font-weight:800}
+.primary:hover{background:var(--blue);border-color:var(--blue)}.text-link{border:0;background:transparent;text-decoration:underline;cursor:pointer;color:var(--ink);font-weight:700}
+.hero-map{border-left:1px solid var(--ink);padding:34px 0 34px 34px;display:flex;align-items:center}
+.arch{width:100%}.arch-title{font:700 10px var(--mono);letter-spacing:.12em;color:var(--muted);margin-bottom:18px}
+.flow{display:grid;grid-template-columns:1fr 30px 1fr;gap:10px;align-items:center}
+.node{border:1px solid var(--ink);padding:14px;background:var(--panel);min-height:62px}.node b{font-size:13px;display:block}.node small{font:10px var(--mono);color:var(--muted);display:block;margin-top:6px}
+.arrow{text-align:center;font:16px var(--mono)}.branch{margin:10px 0 0 50%;border-left:1px solid var(--line);padding:12px 0 0 20px}
+.branch div{font:10px var(--mono);margin:5px 0}.bad{color:var(--red)}.good{color:var(--green)}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--ink)}
+.metric{padding:22px 20px 20px 0;border-right:1px solid var(--line)}.metric:not(:first-child){padding-left:20px}
+.metric:last-child{border-right:0}.metric span{font:9px var(--mono);letter-spacing:.1em;color:var(--muted)}
+.metric b{display:block;font-size:30px;letter-spacing:-.04em;margin-top:6px}.metric small{display:block;color:var(--muted);font-size:10.5px;margin-top:5px}
+.section{padding-top:52px}.section-head{display:grid;grid-template-columns:90px 1fr;gap:20px;margin-bottom:22px}
+.section-no{font:700 11px var(--mono);color:var(--blue);padding-top:7px}.section-head h2{font-size:36px;letter-spacing:-.045em;margin:0}
+.section-head p{color:var(--muted);font-size:13px;line-height:1.65;margin:8px 0 0;max-width:760px}
+.governor{display:grid;grid-template-columns:340px 1fr;border:1px solid var(--ink);background:var(--panel)}
+.controls{padding:24px;border-right:1px solid var(--ink)}.label{font:700 10px var(--mono);letter-spacing:.1em;color:var(--muted);margin-bottom:9px}
+.profile{display:grid;grid-template-columns:1fr;margin-bottom:22px}.profile button{border:1px solid var(--line);border-bottom:0;background:transparent;padding:11px;text-align:left;cursor:pointer;font-size:12px}
+.profile button:last-child{border-bottom:1px solid var(--line)}.profile button.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+.field{margin-top:14px}.field input{width:100%;border:1px solid var(--line);background:white;padding:10px 11px}
+.run{width:100%;margin-top:22px;background:var(--blue);color:#fff;border:1px solid var(--blue);padding:13px;cursor:pointer;font-weight:800}
+.run:disabled{opacity:.55;cursor:wait}.safety{font-size:10.5px;line-height:1.55;color:var(--muted);margin:12px 0 0}
+.receipt{padding:24px;min-width:0}.receipt-empty{display:flex;align-items:center;justify-content:center;min-height:420px;border:1px dashed var(--line);color:var(--muted);text-align:center;padding:30px}
+.receipt-top{display:flex;justify-content:space-between;gap:20px;padding-bottom:18px;border-bottom:1px solid var(--line)}
+.receipt-id{font:10px var(--mono);color:var(--muted)}.decision{font-size:27px;font-weight:850;letter-spacing:-.035em;margin-top:5px}
+.status-pass{color:var(--green)}.status-best{color:var(--amber)}.why{font-size:12px;line-height:1.6;color:var(--muted);max-width:620px;margin-top:7px}
+.table-wrap{overflow:auto;margin-top:18px}table{width:100%;border-collapse:collapse;min-width:720px}th,td{text-align:right;padding:10px 9px;border-bottom:1px solid var(--line);font-size:11px}
+th:first-child,td:first-child{text-align:left}th{font:700 9px var(--mono);letter-spacing:.06em;color:var(--muted)}
+tr.selected{background:var(--blue-soft)}.tag{font:700 9px var(--mono);padding:3px 6px;border:1px solid currentColor}.pass{color:var(--green)}.fail{color:var(--red)}
+.config-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:22px}.config,.reasons{border-top:1px solid var(--ink);padding-top:13px}
+.config h3,.reasons h3{font-size:13px;margin:0 0 10px}.code{background:#151515;color:#f2f2f2;padding:14px;font:11px/1.65 var(--mono);white-space:pre-wrap;min-height:156px}
+.copy{margin-top:8px;border:1px solid var(--ink);background:transparent;padding:7px 9px;cursor:pointer;font:700 9px var(--mono)}
+.reason-item{font-size:11px;line-height:1.55;padding:8px 0;border-bottom:1px solid var(--line)}.reason-item b{display:block}
+.how{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--ink);border-bottom:1px solid var(--ink)}
+.how-item{padding:22px 20px 22px 0;border-right:1px solid var(--line)}.how-item:not(:first-child){padding-left:20px}.how-item:last-child{border-right:0}
+.how-item span{font:700 10px var(--mono);color:var(--blue)}.how-item b{font-size:15px;display:block;margin:9px 0 6px}.how-item p{font-size:11.5px;line-height:1.55;color:var(--muted);margin:0}
+.evidence{border-top:1px solid var(--ink)}details{border-bottom:1px solid var(--line);padding:0}summary{cursor:pointer;padding:17px 0;font-weight:800;display:flex;justify-content:space-between;gap:16px;list-style:none}
+summary::-webkit-details-marker{display:none}summary small{font-weight:400;color:var(--muted)}.detail-body{padding:0 0 20px;font-size:12px;color:#333;line-height:1.65}
+.devgrid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.tool{border:1px solid var(--line);padding:16px;background:var(--panel)}.tool h4{margin:0 0 8px;font-size:13px}.tool p{font-size:11px;color:var(--muted);margin:0 0 10px}
+.tool-result{font:10.5px/1.6 var(--mono);white-space:pre-wrap;background:#fff;border:1px solid var(--line);padding:10px;min-height:80px}
+.tool button{margin-top:9px;border:1px solid var(--ink);background:transparent;padding:7px 9px;cursor:pointer;font:700 9px var(--mono)}
+.proofs{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--ink)}.proof{padding:18px;border-right:1px solid var(--line)}.proof:last-child{border-right:0}.proof span{font:9px var(--mono);color:var(--muted)}
+.proof b{display:block;font-size:20px;margin-top:7px}.proof small{font-size:10.5px;color:var(--muted);display:block;margin-top:6px;line-height:1.45}
+.footnote{font-size:10.5px;color:var(--muted);line-height:1.6;margin-top:14px}.footer{margin-top:52px;border-top:1px solid var(--ink);padding-top:14px;display:flex;justify-content:space-between;gap:16px;font:9.5px var(--mono);color:var(--muted)}
+@media(max-width:900px){h1{font-size:48px}.hero{grid-template-columns:1fr}.hero-map{border-left:0;border-top:1px solid var(--ink);padding:28px 0}.metrics{grid-template-columns:repeat(2,1fr)}.governor{grid-template-columns:1fr}.controls{border-right:0;border-bottom:1px solid var(--ink)}.config-grid,.devgrid{grid-template-columns:1fr}.proofs{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:560px){.page{padding:12px 14px 40px}.live{display:none}h1{font-size:39px}.hero-copy{padding:38px 0}.metrics{grid-template-columns:1fr}.metric,.metric:not(:first-child){padding:16px 0;border-right:0;border-bottom:1px solid var(--line)}.section-head{grid-template-columns:1fr}.section-no{padding:0}.how{grid-template-columns:1fr}.how-item,.how-item:not(:first-child){padding:16px 0;border-right:0;border-bottom:1px solid var(--line)}.proofs{grid-template-columns:1fr}.proof{border-right:0;border-bottom:1px solid var(--line)}}
 </style>
 </head>
 <body>
-<div class="shell">
-<header class="topline"><div class="brand"><span class="brandmark"></span><b>INFERENCERAIL / MISSION CONTROL</b></div><div class="topstatus"><span id="topEnv">ENV —</span><span id="topRev">REV —</span><span class="live" id="topHealth">● CONNECTING</span></div></header>
-<section class="hero"><div class="hero-main"><div class="kicker">ML SERVING CONTROL PLANE · v0.4</div><h1>모델 결과보다<br>요청이 살아남는 과정을 보여줍니다.</h1><p>은행의 합성 위험도 분석 트래픽을 대상으로, 한 요청이 admission → queue → batch → model route → response를 지나가는 전 과정을 재생하고, 후보 모델을 그림자 트래픽으로 비교하며, 두 운영 정책을 같은 코드 경로에서 직접 대결시킵니다.</p></div><aside class="disclaimer"><div class="label">SYNTHETIC / NON-DECISIONING</div><strong>실제 금융 판단 UI가 아닙니다.</strong><p>고객 데이터·신용평가·이상거래 판정에 사용하지 않습니다. pass/review는 serving 동작을 재현하기 위한 deterministic 결과이며, 이 화면의 목적은 모델 정확도가 아니라 운영 경계와 실패 격리입니다.</p></aside></section>
-<section class="marquee"><div class="tick"><span>Backend</span><b id="mBackend">—</b></div><div class="tick"><span>Queue</span><b id="mQueue">—</b></div><div class="tick"><span>Breaker</span><b id="mBreaker">—</b></div><div class="tick"><span>Processed</span><b id="mProcessed">—</b></div><div class="tick"><span>Fallback</span><b id="mFallback">—</b></div><div class="tick"><span>Timeout</span><b id="mTimeout">—</b></div></section>
-<section class="workspace">
-<aside class="left-rail"><div class="rail-title">COMMAND DECK</div>
-<button class="cmd hot" onclick="traceOne()"><span class="key">01</span><span><strong>Trace one request</strong><small>요청 한 건의 전체 생명주기를 Flight Recorder로 재생</small></span></button>
-<button class="cmd" onclick="burst24()"><span class="key">02</span><span><strong>Flash crowd ×24</strong><small>24개 동시 요청의 batch와 admission 결과 관측</small></span></button>
-<button class="cmd" onclick="incidentDrill()"><span class="key">03</span><span><strong>Failure drill</strong><small>Primary 3회 장애 → breaker open → fallback → 복구</small></span></button>
-<button class="cmd" onclick="runShadow()"><span class="key">04</span><span><strong>Mirror candidate</strong><small>실서비스 응답을 건드리지 않고 후보 모델을 shadow 실행</small></span></button>
-<button class="cmd" onclick="runPolicy('flash_crowd')"><span class="key">05</span><span><strong>Policy duel</strong><small>Latency guard와 Throughput guard를 같은 workload에서 비교</small></span></button>
-<div class="rail-title">RECENT FLIGHTS</div><div id="recentFlights" class="recent"><div class="empty">아직 기록된 요청이 없습니다.</div></div></aside>
-<main class="flight"><div class="flight-head"><div><h2>Request Flight Recorder</h2><p>로그를 나열하지 않고, 실제 요청이 어떤 경계를 통과했는지 시간순으로 재생합니다.</p></div><div class="flight-id" id="flightId">NO FLIGHT SELECTED</div></div>
-<div class="track">
-<div class="station" id="st-received"><div class="dot">RX</div><strong>Received</strong><em id="tm-received">—</em></div>
-<div class="station" id="st-admitted"><div class="dot">AD</div><strong>Admission</strong><em id="tm-admitted">—</em></div>
-<div class="station" id="st-queued"><div class="dot">Q</div><strong>Queue</strong><em id="tm-queued">—</em></div>
-<div class="station" id="st-batch_assigned"><div class="dot">B</div><strong>Batch</strong><em id="tm-batch_assigned">—</em></div>
-<div class="station" id="st-backend_dispatched"><div class="dot">RT</div><strong>Router</strong><em id="tm-backend_dispatched">—</em></div>
-<div class="station" id="st-backend_result"><div class="dot">AI</div><strong>Model result</strong><em id="tm-backend_result">—</em></div>
-</div><div id="flightTape" class="tape"><div class="empty">왼쪽에서 Trace one request를 실행하면 실제 서버 이벤트가 여기에 기록됩니다.</div></div></main>
-<aside class="right-rail"><div class="rail-title">CONTROL PLANE</div><div class="rail-stat"><span>Model backend</span><b id="rBackend">—</b></div><div class="rail-stat"><span>Queue pressure</span><b id="rQueue">—</b></div><div class="rail-stat"><span>Circuit state</span><b id="rBreaker">—</b></div><div class="rail-stat"><span>App version</span><b id="rVersion">—</b></div><div class="rail-stat"><span>Revision</span><b id="rRevision">—</b></div><div class="rail-stat"><span>Environment</span><b id="rEnvironment">—</b></div></aside>
+<div class="page">
+<header class="top"><div class="brand">INFERENCERAIL / ML BACKEND GATEWAY</div><div class="live"><span id="env">ENV —</span><span id="rev">REV —</span><span class="ready" id="health">● READY</span></div></header>
+
+<section class="hero">
+  <div class="hero-copy">
+    <div class="eyebrow">RELIABILITY-FIRST AI INFERENCE SERVING</div>
+    <h1>대규모 AI 추론을<br>SLO 안에서 끝내는 서버.</h1>
+    <p class="lead"><b>InferenceRail</b>은 트래픽이 몰리거나 모델이 느려져도 p95 latency와 성공률 SLO를 지키기 위해 batching·admission·fallback 정책을 검증하고 선택하는 ML backend gateway입니다.</p>
+    <div class="weapon">
+      <b>대표 기능 · SLO Governor</b>
+      <p>같은 트래픽을 3개 서빙 정책에 실제 replay하고, 성공률·successful-request p95·admitted throughput·모델 호출 횟수를 비교해 <b>왜 이 설정을 골랐는지 Decision Receipt로 남깁니다.</b></p>
+    </div>
+    <div class="hero-action">
+      <button class="primary" onclick="scrollGovernor()">같은 트래픽으로 정책 선택해보기</button>
+      <button class="text-link" onclick="document.getElementById('evidence').scrollIntoView({behavior:'smooth'})">구현 증거 보기</button>
+    </div>
+  </div>
+  <aside class="hero-map">
+    <div class="arch">
+      <div class="arch-title">PRODUCTION REQUEST PATH</div>
+      <div class="flow"><div class="node"><b>AI request</b><small>deadline + SLO class</small></div><div class="arrow">→</div><div class="node"><b>InferenceRail</b><small>admission / queue</small></div></div>
+      <div class="flow" style="margin-top:10px"><div class="node"><b>Dynamic batch</b><small>latency ↔ throughput</small></div><div class="arrow">→</div><div class="node"><b>Triton backend</b><small>primary model</small></div></div>
+      <div class="branch">
+        <div class="bad">queue pressure ↑ → 429 load shedding</div>
+        <div class="bad">model failure → circuit open</div>
+        <div class="good">fallback → recovery probe</div>
+      </div>
+    </div>
+  </aside>
 </section>
-<section class="lab-grid">
-<article class="lab"><div class="lab-head"><div><h3>Shadow Lane</h3><p>Production response는 stable이 계속 결정하고, 같은 입력을 candidate에 복제해 결과·지연 차이만 관찰합니다. 후보 모델이 실제 응답을 바꾸지 않습니다.</p></div><button class="action primary" onclick="runShadow()">MIRROR REQUEST</button></div><div class="shadow-lanes"><div class="lane"><div class="v">SERVING · STABLE</div><strong id="stableLabel">—</strong><div class="meta" id="stableMeta">score — · latency —</div></div><div class="lane"><div class="v">SHADOW · CANDIDATE</div><strong id="candidateLabel">—</strong><div class="meta" id="candidateMeta">score — · latency —</div></div></div><div class="gate" id="shadowGate">Candidate gate가 아직 실행되지 않았습니다.</div></article>
-<article class="lab"><div class="lab-head"><div><h3>Resilience Policy Duel</h3><p>가상의 계산표가 아니라 동일한 DynamicBatcher·CircuitBreaker 코드 경로를 격리 실행해 두 정책의 admission, p95, throughput을 비교합니다.</p></div></div><div class="profiles"><button onclick="runPolicy('steady')">STEADY</button><button onclick="runPolicy('flash_crowd')">FLASH CROWD</button><button onclick="runPolicy('degraded_primary')">DEGRADED PRIMARY</button></div><div class="duel"><div class="duel-row"><span>Latency success</span><div class="bar"><i id="latSuccess"></i></div><b id="latSuccessV">—</b></div><div class="duel-row"><span>Throughput success</span><div class="bar alt"><i id="thrSuccess"></i></div><b id="thrSuccessV">—</b></div><div class="duel-row"><span>Latency p95</span><div class="bar"><i id="latP95"></i></div><b id="latP95V">—</b></div><div class="duel-row"><span>Throughput p95</span><div class="bar alt"><i id="thrP95"></i></div><b id="thrP95V">—</b></div></div><div class="winner" id="policyWinner">프로필을 선택하면 실제 비교 결과가 표시됩니다.</div></article>
+
+<section class="metrics">
+  <div class="metric"><span>GATEWAY THROUGHPUT</span><b>5.20×</b><small>batch 1 대비 batch 8 · 반복 검증</small></div>
+  <div class="metric"><span>P95 LATENCY</span><b>−81%</b><small>996ms → 약 190ms · synthetic benchmark</small></div>
+  <div class="metric"><span>KUBERNETES HPA</span><b>2 → 6</b><small>kind 1.37에서 실제 scale-out</small></div>
+  <div class="metric"><span>REAL TRITON</span><b>2.73.0</b><small>실제 서버 · gateway batch 8 · fallback 0</small></div>
 </section>
-<section class="proof"><div class="proof-title"><h3>Runtime proof ledger</h3><p>“구성했습니다”가 아니라 실제 실행으로 확인된 경계만 표시합니다.</p></div><div class="proof-ledger"><div class="proof-item"><span>KUBERNETES HPA</span><b>2 → 6</b><small>kind 1.37 + Metrics Server 실제 scale-out</small></div><div class="proof-item"><span>KEDA / PROMETHEUS</span><b>2 → 3</b><small>queue saturation external metric 기반 실제 scale-out</small></div><div class="proof-item"><span>NVIDIA TRITON</span><b>2.73.0</b><small>실제 Triton Server + gateway batch 8 / fallback 0</small></div><div class="proof-item"><span>OTEL / JAEGER</span><b>TRACE OK</b><small>Compose 전체 stack에서 inference trace 실제 조회</small></div></div></section>
-<footer class="footer"><span>INFERENCERAIL · SYNTHETIC SERVING LAB</span><span>NO REAL CUSTOMER DATA · NO CREDIT DECISION</span></footer>
+
+<section class="section" id="governor">
+  <div class="section-head"><div class="section-no">01 / WEAPON</div><div><h2>SLO Governor — 감으로 튜닝하지 않습니다.</h2><p>하나의 synthetic workload를 격리된 실제 DynamicBatcher + CircuitBreaker 경로에 동일하게 replay합니다. SLO를 만족한 후보 중 모델 호출 수가 가장 적은 정책을 선택하고, 탈락한 정책의 이유까지 receipt로 남깁니다.</p></div></div>
+  <div class="governor">
+    <aside class="controls">
+      <div class="label">TRAFFIC PROFILE</div>
+      <div class="profile">
+        <button data-profile="steady" onclick="chooseProfile('steady')">STEADY · 평상시</button>
+        <button data-profile="flash_crowd" class="active" onclick="chooseProfile('flash_crowd')">FLASH CROWD · 순간 폭주</button>
+        <button data-profile="degraded_primary" onclick="chooseProfile('degraded_primary')">DEGRADED PRIMARY · 모델 불안정</button>
+      </div>
+      <div class="field"><div class="label">TARGET P95 (ms)</div><input id="targetP95" type="number" min="50" max="2000" value="250"></div>
+      <div class="field"><div class="label">MIN SUCCESS RATE (%)</div><input id="targetSuccess" type="number" min="50" max="100" step="0.1" value="99.5"></div>
+      <button class="run" id="runBtn" onclick="runGovernor()">동일 workload 3정책 replay</button>
+      <p class="safety">공개 데모는 shared runtime을 바꾸지 않습니다. 실제 serving 코드 경로를 <b>격리 복제</b>해 replay하고 권장 config만 발행합니다.</p>
+    </aside>
+    <main class="receipt" id="receipt"><div class="receipt-empty">SLO를 입력하고 실행하면<br><b>Decision Receipt</b>가 생성됩니다.</div></main>
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-head"><div class="section-no">02 / LOGIC</div><div><h2>같은 트래픽, 다른 선택. 결과로 결정합니다.</h2><p>비용을 임의의 달러로 환산하지 않습니다. batching이 실제 backend 호출을 얼마나 줄였는지를 compute pressure proxy로 사용합니다.</p></div></div>
+  <div class="how">
+    <div class="how-item"><span>STEP 1</span><b>Workload fingerprint</b><p>동일 요청 수·동시성·장애 스케줄을 고정해 비교 조건이 바뀌지 않도록 합니다.</p></div>
+    <div class="how-item"><span>STEP 2</span><b>Counterfactual replay</b><p>Latency / Throughput / Availability 세 정책을 실제 batcher와 breaker 코드 경로에서 각각 실행합니다.</p></div>
+    <div class="how-item"><span>STEP 3</span><b>Decision receipt</b><p>SLO 통과 후보 중 backend calls / 100 success가 가장 낮은 정책을 고르고 탈락 이유를 남깁니다.</p></div>
+  </div>
+</section>
+
+<section class="section" id="evidence">
+  <div class="section-head"><div class="section-no">03 / EVIDENCE</div><div><h2>깊게 보고 싶은 개발자를 위한 증거.</h2><p>첫 화면을 복잡하게 만들던 기능들은 없애지 않고 여기로 내렸습니다. 요청 단위 추적, 후보 모델 shadow, 실제 인프라 검증을 필요할 때만 열어볼 수 있습니다.</p></div></div>
+  <div class="evidence">
+    <details><summary>Request Flight Recorder <small>received → queue → batch → model result</small></summary><div class="detail-body"><div class="devgrid"><div class="tool"><h4>실제 요청 한 건 추적</h4><p>서버 내부의 실제 timestamp를 수집합니다.</p><button onclick="traceOne()">TRACE REQUEST</button></div><div class="tool"><h4>Lifecycle</h4><div class="tool-result" id="flightResult">아직 실행하지 않았습니다.</div></div></div></div></details>
+    <details><summary>Shadow model validation <small>stable response 유지 · candidate는 비교만</small></summary><div class="detail-body"><div class="devgrid"><div class="tool"><h4>Candidate mirror</h4><p>후보 모델이 live response를 바꾸지 않는 상태로 score/latency를 비교합니다.</p><button onclick="runShadow()">MIRROR CANDIDATE</button></div><div class="tool"><h4>Gate result</h4><div class="tool-result" id="shadowResult">아직 실행하지 않았습니다.</div></div></div></div></details>
+    <details><summary>Runtime proof <small>Kubernetes · KEDA · Triton · OTel/Jaeger</small></summary><div class="detail-body"><div class="proofs"><div class="proof"><span>HPA</span><b>2 → 6</b><small>Metrics Server 기반 actual scale-out</small></div><div class="proof"><span>KEDA</span><b>2 → 3</b><small>Prometheus queue metric 기반 scale-out</small></div><div class="proof"><span>TRITON</span><b>2.73.0</b><small>실제 NVIDIA Triton Server runtime</small></div><div class="proof"><span>OTEL</span><b>TRACE OK</b><small>Jaeger에서 inference trace 실제 조회</small></div></div></div></details>
+    <details><summary>Developer API <small>재현 가능한 endpoint</small></summary><div class="detail-body"><div class="devgrid"><div class="tool"><h4>SLO decision</h4><div class="tool-result">POST /v1/slo-decision
+{"profile":"flash_crowd","target_p95_ms":250,"min_success_rate":0.995}</div></div><div class="tool"><h4>Request trace</h4><div class="tool-result">POST /v1/predict
+GET /ops/flights/{request_id}</div></div></div></div></details>
+  </div>
+  <p class="footnote">공개 데모는 deterministic synthetic workload를 사용합니다. 5.2×/−81% 수치는 gateway batching 구조를 분리해 측정한 값이며 실제 GPU 성능으로 주장하지 않습니다. 실제 Triton runtime, Kubernetes autoscaling, distributed tracing 검증은 별도 CI evidence로 보존합니다.</p>
+</section>
+
+<footer class="footer"><span>INFERENCERAIL · v0.5 · SLO-AWARE ML BACKEND GATEWAY</span><span>NO REAL CUSTOMER DATA · NO FINANCIAL DECISION</span></footer>
 </div>
+
 <script>
-const baseText='synthetic bank risk event amount=1850000 device=new location=overseas account_age_days=12';
-const stations=['received','admitted','queued','batch_assigned','backend_dispatched','backend_result'];
-const $=id=>document.getElementById(id);const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-async function jsonFetch(url,options={}){const response=await fetch(url,options);let body={};try{body=await response.json()}catch(e){}if(!response.ok)throw new Error(body.detail||('HTTP '+response.status));return body}
-async function send(text,requestId){const headers={'content-type':'application/json'};if(requestId)headers['x-request-id']=requestId;return jsonFetch('/v1/predict',{method:'POST',headers,body:JSON.stringify({text})})}
-function resetTrack(){stations.forEach(stage=>{$('st-'+stage).classList.remove('hit','fallback');$('tm-'+stage).textContent='—'})}
-function escapeHtml(value){return String(value).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
-function renderFlight(flight){resetTrack();$('flightId').textContent=flight.request_id+' · '+flight.status.toUpperCase();const tape=[];for(const event of flight.events){if(stations.includes(event.stage)){$('st-'+event.stage).classList.add('hit');$('tm-'+event.stage).textContent=event.at_ms.toFixed(1)+'ms';if(event.stage==='backend_result'&&event.detail.fallback_used)$('st-'+event.stage).classList.add('fallback')}tape.push('<div class="tape-row"><span class="t">+'+event.at_ms.toFixed(2)+'ms</span><span class="stage">'+event.stage+'</span><span class="detail">'+escapeHtml(JSON.stringify(event.detail))+'</span></div>')}$('flightTape').innerHTML=tape.join('')||'<div class="empty">이벤트가 없습니다.</div>'}
-async function traceOne(){const id='flight-'+Date.now().toString(36);resetTrack();$('flightId').textContent=id+' · RUNNING';$('flightTape').innerHTML='<div class="empty">실제 요청을 보내고 Flight Recorder 이벤트를 회수하는 중…</div>';await send(baseText+' trace=1',id);await sleep(60);renderFlight(await jsonFetch('/ops/flights/'+id));await refresh();await loadRecent()}
-async function openRecent(id){renderFlight(await jsonFetch('/ops/flights/'+encodeURIComponent(id)))}
-async function loadRecent(){try{const body=await jsonFetch('/ops/flights?limit=8');if(!body.flights.length)return;$('recentFlights').innerHTML=body.flights.map(f=>'<button onclick="openRecent(\''+f.request_id+'\')">'+f.request_id.slice(0,18)+'<br><small>'+f.status+' · '+(f.duration_ms||0)+'ms</small></button>').join('')}catch(e){}}
-async function burst24(){$('flightId').textContent='FLASH CROWD · 24 REQUESTS';$('flightTape').innerHTML='<div class="empty">24개 요청을 동시에 보내는 중…</div>';const ids=Array.from({length:24},(_,i)=>'burst-'+Date.now().toString(36)+'-'+i);const started=performance.now();const rows=await Promise.all(ids.map((id,i)=>send(baseText+' burst='+i,id).catch(error=>({error:String(error)}))));const ok=rows.filter(x=>!x.error);const batches=[...new Set(ok.map(x=>x.batch_size))].sort((a,b)=>a-b);$('flightTape').innerHTML='<div class="tape-row"><span class="t">DONE</span><span class="stage">flash_crowd</span><span class="detail">'+ok.length+'/24 success · batch sizes '+batches.join(', ')+' · '+(performance.now()-started).toFixed(1)+'ms client wall</span></div>';if(ids[0]){await sleep(60);renderFlight(await jsonFetch('/ops/flights/'+ids[0]))}await refresh();await loadRecent()}
-async function incidentDrill(){$('flightId').textContent='INCIDENT DRILL · PRIMARY FAILURE';$('flightTape').innerHTML='<div class="empty">Primary 3회 장애를 주입하는 중…</div>';for(let i=1;i<=3;i++)await send(baseText+' __FAIL_PRIMARY__ incident='+i);const whileOpen=await send(baseText+' healthy-while-open');$('flightTape').innerHTML='<div class="tape-row"><span class="t">OPEN</span><span class="stage">circuit_breaker</span><span class="detail">healthy request routed to '+whileOpen.backend+'</span></div><div class="tape-row"><span class="t">WAIT</span><span class="stage">recovery_window</span><span class="detail">5 seconds</span></div>';await sleep(5300);const recovered=await send(baseText+' recovery-probe');$('flightTape').innerHTML+='<div class="tape-row"><span class="t">RECOVER</span><span class="stage">primary_probe</span><span class="detail">backend='+recovered.backend+' fallback='+recovered.fallback_used+'</span></div>';await refresh();await loadRecent()}
-async function runShadow(){$('shadowGate').textContent='Stable traffic을 candidate lane으로 mirror 중…';const body=await jsonFetch('/v1/shadow-compare',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text:baseText+' shadow'})});$('stableLabel').textContent=body.stable.label.toUpperCase();$('candidateLabel').textContent=body.candidate.label.toUpperCase();$('stableMeta').textContent='score '+body.stable.score+' · '+body.stable.latency_ms+'ms';$('candidateMeta').textContent='score '+body.candidate.score+' · '+body.candidate.latency_ms+'ms';$('shadowGate').textContent='gate='+body.gate+' · agreement='+body.agreement+' · Δscore='+body.score_delta+' · live serving decision='+body.serving_decision}
-function setBar(id,value){$(id).style.width=Math.max(3,Math.min(100,value))+'%'}
-async function runPolicy(profile){$('policyWinner').textContent=profile+' workload를 격리된 실제 batcher 두 개에서 실행 중…';const body=await jsonFetch('/v1/policy-lab',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({profile})});const lat=body.policies.latency_guard,thr=body.policies.throughput_guard;setBar('latSuccess',lat.success_rate*100);setBar('thrSuccess',thr.success_rate*100);const maxP=Math.max(lat.p95_ms,thr.p95_ms,1);setBar('latP95',lat.p95_ms/maxP*100);setBar('thrP95',thr.p95_ms/maxP*100);$('latSuccessV').textContent=(lat.success_rate*100).toFixed(0)+'%';$('thrSuccessV').textContent=(thr.success_rate*100).toFixed(0)+'%';$('latP95V').textContent=lat.p95_ms+'ms';$('thrP95V').textContent=thr.p95_ms+'ms';$('policyWinner').textContent='PROFILE '+profile+' · winner='+body.winner_for_this_run+' · '+body.reason+' · admitted throughput '+lat.throughput_rps+' vs '+thr.throughput_rps+' req/s'}
-async function refresh(){try{const [status,build]=await Promise.all([jsonFetch('/ops/status'),jsonFetch('/ops/build')]);$('mBackend').textContent=status.backend_mode;$('mQueue').textContent=status.queue_depth+'/'+status.queue_capacity;$('mBreaker').textContent=status.breaker_state;$('mProcessed').textContent=status.processed_requests;$('mFallback').textContent=status.fallback_requests;$('mTimeout').textContent=status.primary_timeouts;$('rBackend').textContent=status.backend_mode;$('rQueue').textContent=status.queue_depth+'/'+status.queue_capacity;$('rBreaker').textContent=status.breaker_state+' · '+status.breaker_failures;$('rVersion').textContent=build.version;$('rRevision').textContent=String(build.revision).slice(0,10);$('rEnvironment').textContent=build.environment;$('topEnv').textContent='ENV '+build.environment.toUpperCase();$('topRev').textContent='REV '+String(build.revision).slice(0,10);$('topHealth').textContent='● SERVICE READY';$('topHealth').className=status.breaker_state==='open'?'warn':'live'}catch(e){$('topHealth').textContent='● OFFLINE';$('topHealth').className='danger'}}
-refresh();loadRecent();setInterval(refresh,2200);
+let selectedProfile='flash_crowd';let selectedConfig=null;
+const $=id=>document.getElementById(id);
+function esc(v){return String(v).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
+async function api(url,options={}){const r=await fetch(url,options);let b={};try{b=await r.json()}catch(e){}if(!r.ok)throw new Error(b.detail||('HTTP '+r.status));return b}
+function scrollGovernor(){$('governor').scrollIntoView({behavior:'smooth',block:'start'})}
+function chooseProfile(name){selectedProfile=name;document.querySelectorAll('[data-profile]').forEach(btn=>btn.classList.toggle('active',btn.dataset.profile===name))}
+function pct(v){return (v*100).toFixed(v*100===100?0:1)+'%'}
+function policyLabel(name){return {latency_guard:'Latency Guard',throughput_guard:'Throughput Guard',availability_guard:'Availability Guard'}[name]||name}
+function configText(config){return [
+  'QUEUE_CAPACITY='+config.queue_capacity,
+  'MAX_BATCH_SIZE='+config.batch_size,
+  'MAX_BATCH_WAIT_MS='+config.batch_wait_ms,
+  'REQUEST_TIMEOUT_MS='+config.timeout_ms,
+  'PRIMARY_TIMEOUT_MS='+config.primary_timeout_ms,
+  'BREAKER_FAILURE_THRESHOLD='+config.breaker_threshold
+].join('\n')}
+async function copyConfig(){if(!selectedConfig)return;await navigator.clipboard.writeText(configText(selectedConfig));$('copyBtn').textContent='COPIED'}
+async function runGovernor(){
+  const btn=$('runBtn');btn.disabled=true;btn.textContent='REPLAYING…';
+  $('receipt').innerHTML='<div class="receipt-empty">같은 workload를 3개 policy에 replay 중…</div>';
+  try{
+    const targetP95=Number($('targetP95').value),success=Number($('targetSuccess').value)/100;
+    const body=await api('/v1/slo-decision',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({profile:selectedProfile,target_p95_ms:targetP95,min_success_rate:success})});
+    renderReceipt(body.decision_receipt);
+  }catch(e){$('receipt').innerHTML='<div class="receipt-empty" style="color:var(--red)">실행 실패: '+esc(e.message)+'</div>'}
+  finally{btn.disabled=false;btn.textContent='동일 workload 3정책 replay'}
+}
+function renderReceipt(r){
+  selectedConfig=r.selected_config;
+  const names=['latency_guard','throughput_guard','availability_guard'];
+  const rows=names.map(name=>{const x=r.evidence[name];const sel=name===r.selected_policy;return '<tr class="'+(sel?'selected':'')+'"><td><b>'+policyLabel(name)+'</b>'+(sel?' · SELECTED':'')+'</td><td><span class="tag '+(x.slo_pass?'pass':'fail')+'">'+(x.slo_pass?'PASS':'FAIL')+'</span></td><td>'+pct(x.success_rate)+'</td><td>'+x.p95_ms+'ms</td><td>'+x.throughput_rps+'</td><td>'+x.backend_calls_per_100_success+'</td><td>'+x.shed_requests+'</td></tr>'}).join('');
+  const reasons=names.filter(n=>n!==r.selected_policy).map(name=>{const x=r.evidence[name];const why=x.rejection_reasons.length?x.rejection_reasons.join(' · '):'SLO는 통과했지만 compute proxy / p95 / throughput 우선순위에서 선택되지 않음';return '<div class="reason-item"><b>'+policyLabel(name)+'</b>'+esc(why)+'</div>'}).join('');
+  $('receipt').innerHTML='<div class="receipt-top"><div><div class="receipt-id">DECISION RECEIPT · WORKLOAD '+r.workload_fingerprint+'</div><div class="decision '+(r.status==='slo_met'?'status-pass':'status-best')+'">'+policyLabel(r.selected_policy)+'</div><div class="why">'+esc(r.why)+'</div></div><div><span class="tag '+(r.status==='slo_met'?'pass':'fail')+'">'+r.status.toUpperCase()+'</span></div></div>'+
+  '<div class="table-wrap"><table><thead><tr><th>POLICY</th><th>SLO</th><th>SUCCESS</th><th>P95</th><th>ADMITTED RPS</th><th>BACKEND CALLS / 100 SUCCESS</th><th>SHED</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
+  '<div class="config-grid"><div class="config"><h3>권장 runtime config</h3><div class="code">'+esc(configText(r.selected_config))+'</div><button class="copy" id="copyBtn" onclick="copyConfig()">COPY CONFIG</button></div><div class="reasons"><h3>다른 정책을 고르지 않은 이유</h3>'+reasons+'</div></div>';
+}
+async function traceOne(){
+  const id='proof-'+Date.now().toString(36);
+  $('flightResult').textContent='request lifecycle 수집 중…';
+  await api('/v1/predict',{method:'POST',headers:{'content-type':'application/json','x-request-id':id},body:JSON.stringify({text:'synthetic proof request'})});
+  const f=await api('/ops/flights/'+id);
+  $('flightResult').textContent=f.events.map(e=>'+'+e.at_ms.toFixed(2)+'ms  '+e.stage+'  '+JSON.stringify(e.detail)).join('\n');
+}
+async function runShadow(){
+  $('shadowResult').textContent='candidate mirror 실행 중…';
+  const b=await api('/v1/shadow-compare',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text:'synthetic shadow proof'})});
+  $('shadowResult').textContent='live='+b.serving_decision+'\nstable='+b.stable.label+' / '+b.stable.latency_ms+'ms\ncandidate='+b.candidate.label+' / '+b.candidate.latency_ms+'ms\ngate='+b.gate+'\nΔscore='+b.score_delta;
+}
+async function refresh(){
+  try{const [s,b]=await Promise.all([api('/ops/status'),api('/ops/build')]);$('env').textContent='ENV '+b.environment.toUpperCase();$('rev').textContent='REV '+String(b.revision).slice(0,10);$('health').textContent=s.breaker_state==='open'?'● FALLBACK':'● READY';$('health').className=s.breaker_state==='open'?'bad':'ready'}catch(e){$('health').textContent='● OFFLINE';$('health').className='bad'}
+}
+refresh();setInterval(refresh,2500);
 </script>
 </body>
 </html>
