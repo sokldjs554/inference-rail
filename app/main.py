@@ -319,6 +319,7 @@ async def _run_policy_trial(
     semaphore = asyncio.Semaphore(traffic["concurrency"])
     statuses: Counter[str] = Counter()
     latencies: list[float] = []
+    success_latencies: list[float] = []
     batch_sizes: list[int] = []
     fallback_count = 0
 
@@ -330,9 +331,11 @@ async def _run_policy_trial(
             text += " __FAIL_PRIMARY__"
         async with semaphore:
             started = time.perf_counter()
+            succeeded = False
             try:
                 outcome = await batcher.submit(text, timeout_ms=policy["timeout_ms"])
                 statuses["ok"] += 1
+                succeeded = True
                 batch_sizes.append(outcome.batch_size)
                 fallback_count += int(outcome.result.fallback_used)
             except QueueFullError:
@@ -341,7 +344,10 @@ async def _run_policy_trial(
                 statuses["timeout"] += 1
             except BackendUnavailableError:
                 statuses["unavailable"] += 1
-            latencies.append((time.perf_counter() - started) * 1000)
+            elapsed_ms = (time.perf_counter() - started) * 1000
+            latencies.append(elapsed_ms)
+            if succeeded:
+                success_latencies.append(elapsed_ms)
 
     started = time.perf_counter()
     try:
@@ -350,14 +356,18 @@ async def _run_policy_trial(
         await batcher.stop()
     duration = time.perf_counter() - started
     ordered = sorted(latencies)
-    p95_index = min(len(ordered) - 1, round((len(ordered) - 1) * 0.95))
+    success_ordered = sorted(success_latencies)
+    p95_source = success_ordered or ordered
+    p95_index = min(len(p95_source) - 1, round((len(p95_source) - 1) * 0.95))
 
     return {
         "policy": policy,
         "status_counts": dict(statuses),
         "success_rate": round(statuses["ok"] / traffic["requests"], 4),
-        "throughput_rps": round(traffic["requests"] / duration, 2),
-        "p95_ms": round(ordered[p95_index], 2),
+        "throughput_rps": round(statuses["ok"] / duration, 2),
+        "offered_rps": round(traffic["requests"] / duration, 2),
+        "p95_ms": round(p95_source[p95_index], 2),
+        "shed_requests": traffic["requests"] - statuses["ok"],
         "mean_batch_size": round(statistics.mean(batch_sizes), 2)
         if batch_sizes
         else 0,
