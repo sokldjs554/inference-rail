@@ -1,0 +1,80 @@
+name: triton-runtime
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/triton-runtime.yml"
+      - "app/backends/triton.py"
+      - "app/core/batcher.py"
+      - "triton-models/**"
+      - "scripts/triton_real_runtime_verify.py"
+      - "pyproject.toml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: triton-runtime-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  real-triton:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install gateway
+        run: pip install -e '.[dev]'
+
+      - name: Pull NVIDIA Triton 26.09
+        run: docker pull nvcr.io/nvidia/tritonserver:26.09-py3@sha256:1f08352ff9318894ca24bb36a532ad450b1289f7a6aeb163ae752a446c400fe6
+
+      - name: Start real Triton Server on CPU
+        run: |
+          docker run -d --rm \
+            --name inference-rail-triton \
+            --shm-size=1g \
+            -p 18080:8000 \
+            -p 18081:8001 \
+            -p 18082:8002 \
+            -v "$PWD/triton-models:/models:ro" \
+            nvcr.io/nvidia/tritonserver:26.09-py3@sha256:1f08352ff9318894ca24bb36a532ad450b1289f7a6aeb163ae752a446c400fe6 \
+            tritonserver --model-repository=/models --strict-model-config=true --exit-on-error=true
+
+          for i in $(seq 1 120); do
+            if curl -fsS http://127.0.0.1:18080/v2/health/ready >/dev/null; then
+              break
+            fi
+            sleep 2
+          done
+
+          curl -fsS http://127.0.0.1:18080/v2
+          curl -fsS http://127.0.0.1:18080/v2/models/text_classifier/ready
+
+      - name: Verify gateway against real Triton
+        env:
+          GIT_SHA: ${{ github.sha }}
+        run: python scripts/triton_real_runtime_verify.py
+
+      - name: Save Triton runtime evidence
+        if: always()
+        run: |
+          mkdir -p docs/evidence/triton-runtime
+          curl -fsS http://127.0.0.1:18082/metrics > docs/evidence/triton-runtime/triton-metrics.txt || true
+          curl -fsS http://127.0.0.1:18080/v2 > docs/evidence/triton-runtime/server-metadata.json || true
+          curl -fsS http://127.0.0.1:18080/v2/models/text_classifier > docs/evidence/triton-runtime/model-metadata.json || true
+          docker logs inference-rail-triton > docs/evidence/triton-runtime/triton-server.log 2>&1 || true
+          cp triton-runtime-evidence.json docs/evidence/triton-runtime/summary.json 2>/dev/null || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: triton-real-runtime-evidence
+          path: docs/evidence/triton-runtime/
