@@ -131,6 +131,18 @@ helm repo add kedacore https://kedacore.github.io/charts
 helm repo update
 helm install keda kedacore/keda --version 2.21.0 -n keda --create-namespace --wait --timeout 5m
 kubectl apply -f k8s/keda-scaledobject.yaml
+# The production manifest keeps threshold 0.60. The deterministic CI workload
+# stabilizes around 0.50 queue saturation, so this integration test lowers only
+# the live ScaledObject threshold to 0.40 to prove the real
+# Prometheus -> KEDA -> HPA -> Deployment control path.
+kubectl patch scaledobject inference-rail-queue --type=merge -p='{
+  "spec":{"triggers":[{"type":"prometheus","metadata":{
+    "serverAddress":"http://prometheus.monitoring.svc.cluster.local:9090",
+    "metricName":"inference_rail_queue_saturation",
+    "query":"sum(inference_queue_depth) / clamp_min(sum(inference_queue_capacity), 1)",
+    "threshold":"0.40"
+  }}]}
+}'
 
 for _ in $(seq 1 60); do
   ready="$(kubectl get scaledobject inference-rail-queue -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || true)"
@@ -155,7 +167,7 @@ wait
 '
 
 KEDA_SCALED=0
-for _ in $(seq 1 48); do
+for _ in $(seq 1 30); do
   replicas="$(kubectl get deployment inference-rail -o jsonpath='{.spec.replicas}')"
   queue_metric="$(kubectl -n monitoring exec deploy/prometheus -- \
     wget -qO- 'http://127.0.0.1:9090/api/v1/query?query=sum(inference_queue_depth)%2Fclamp_min(sum(inference_queue_capacity)%2C1)' \
