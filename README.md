@@ -18,17 +18,17 @@
 
 ## 공개 데모에서 보는 것
 
-공개 데모는 **은행의 합성 AI 위험도 분석 요청**을 예시로 사용합니다. 실제 금융 판단이나 고객 데이터는 사용하지 않습니다.
+v0.4 데모는 일반적인 지표 카드형 대시보드 대신 **AI Serving Mission Control** 형태로 구성했습니다.
 
-면접관은 다음 5단계를 직접 실행할 수 있습니다.
+면접관이 직접 사용하는 핵심 기능은 다음과 같습니다.
 
-1. **정상 분석** — Primary 모델 정상 처리
-2. **트래픽 급증** — 24개 동시 요청과 dynamic batching
-3. **모델 장애** — Primary failure 1회와 자동 fallback
-4. **자동 우회** — 3회 실패 후 Circuit Breaker open, 장애 모델 격리
-5. **복구 확인** — recovery window 이후 Primary 재진입
+1. **Request Flight Recorder** — 요청 한 건의 `received → admission → queue → batch → router → model result` 이벤트를 실제 서버 timestamp로 재생
+2. **Flash Crowd ×24** — 24개 동시 요청을 보내 실제 batch size와 admission 경로를 관찰
+3. **Failure Drill** — Primary 3회 장애 → Circuit Breaker open → fallback → recovery probe
+4. **Shadow Lane** — stable 응답은 그대로 유지하면서 candidate 모델을 그림자 트래픽으로 동시에 실행해 label/score/latency 차이와 promotion gate를 확인
+5. **Resilience Policy Duel** — `latency_guard`와 `throughput_guard`를 동일한 synthetic workload에서 실제 DynamicBatcher/CircuitBreaker 코드 경로로 격리 실행해 success rate, p95, throughput을 비교
 
-`전체 시나리오 자동 실행` 버튼은 위 흐름을 한 번에 재현합니다. 오른쪽 서비스 상태 영역에서는 queue, breaker, processed/fallback/timeout, backend mode, 배포 revision을 함께 확인할 수 있습니다.
+아래의 합성 은행 위험도 요청은 화면을 이해하기 위한 맥락일 뿐 실제 금융 판단에 사용되지 않습니다.
 
 ## 한눈에 보기
 
