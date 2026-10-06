@@ -23,8 +23,12 @@ class MockBackend(InferenceBackend):
         self.item_latency_ms = item_latency_ms
         self.fail_on_marker = fail_on_marker
         self.score_salt = score_salt
+        self.batch_calls = 0
+        self.items_processed = 0
 
     async def infer_batch(self, texts: list[str]) -> list[ModelResult]:
+        self.batch_calls += 1
+        self.items_processed += len(texts)
         if self.fail_on_marker and any("__FAIL_PRIMARY__" in text for text in texts):
             await asyncio.sleep(0.004)
             raise RuntimeError("simulated primary model failure")

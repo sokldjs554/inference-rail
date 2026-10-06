@@ -24,6 +24,11 @@ class PolicyLabRequest(BaseModel):
     profile: Literal["steady", "flash_crowd", "degraded_primary"] = "flash_crowd"
 
 
+class SLODecisionRequest(PolicyLabRequest):
+    target_p95_ms: float = Field(default=250.0, ge=50.0, le=2000.0)
+    min_success_rate: float = Field(default=0.995, ge=0.5, le=1.0)
+
+
 class RuntimeStatus(BaseModel):
     backend_mode: str
     queue_depth: int
