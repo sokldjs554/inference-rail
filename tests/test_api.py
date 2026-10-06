@@ -11,12 +11,14 @@ def test_health_and_prediction():
         assert demo.status_code == 200
         assert "InferenceRail" in demo.text
         assert "대규모 AI 추론을" in demo.text
-        assert "SLO Governor" in demo.text\n        assert "SLO Governor 실행" in demo.text\n        assert "}\\\\nfunction" not in demo.text
+        assert "SLO Governor" in demo.text
+        assert "SLO Governor 실행" in demo.text
+        assert "}\\nfunction" not in demo.text
         assert "Decision Receipt" in demo.text
         assert "backend calls / 100 success" in demo.text
         build_body = client.get("/ops/build").json()
         assert build_body["app"] == "InferenceRail"
-        assert build_body["version"] == "0.5.0"
+        assert build_body["version"] == "0.6.0"
         assert build_body["backend_mode"] == "mock"
         status_body = client.get("/ops/status").json()
         assert status_body["backend_mode"] == "mock"
@@ -124,3 +126,16 @@ def test_slo_governor_emits_decision_receipt():
             assert "p95_ms" in result
         selected = receipt["evidence"][receipt["selected_policy"]]
         assert selected["policy"] == receipt["selected_config"]
+        envelope = receipt["safe_operating_envelope"]
+        assert envelope["method"] == "measured_concurrency_sweep"
+        assert [point["concurrency"] for point in envelope["points"]] == [
+            4,
+            8,
+            16,
+            24,
+            32,
+            40,
+        ]
+        contract = receipt["deployment_contract"]
+        assert contract["runtime_config"] == receipt["selected_config"]
+        assert contract["evidence_basis"].startswith("measured concurrency sweep")

@@ -319,6 +319,22 @@ async def slo_decision(payload: SLODecisionRequest) -> dict[str, Any]:
         target_p95_ms=payload.target_p95_ms,
         min_success_rate=payload.min_success_rate,
     )
+    envelope = await _measure_safe_envelope(
+        policy_name=receipt["selected_policy"],
+        policy=receipt["selected_config"],
+        failure_every=traffic["failure_every"],
+        target_p95_ms=payload.target_p95_ms,
+        min_success_rate=payload.min_success_rate,
+    )
+    receipt["safe_operating_envelope"] = envelope
+    receipt["deployment_contract"] = {
+        "runtime_config": receipt["selected_config"],
+        "max_verified_concurrency": envelope["max_verified_concurrency"],
+        "first_unsafe_concurrency": envelope["first_unsafe_concurrency"],
+        "scale_before_concurrency": envelope["scale_before_concurrency"],
+        "shed_from_concurrency": envelope["first_unsafe_concurrency"],
+        "evidence_basis": "measured concurrency sweep on isolated serving path",
+    }
     return {
         "profile": payload.profile,
         "traffic": traffic,
@@ -431,6 +447,82 @@ async def _run_policy_trial(
         "backend_calls": backend_calls,
         "backend_calls_per_100_success": calls_per_100,
         "breaker_state": breaker.state.value,
+    }
+
+
+async def _measure_safe_envelope(
+    *,
+    policy_name: str,
+    policy: dict[str, int],
+    failure_every: int,
+    target_p95_ms: float,
+    min_success_rate: float,
+) -> dict[str, Any]:
+    points: list[dict[str, Any]] = []
+    concurrency_levels = [4, 8, 16, 24, 32, 40]
+
+    for concurrency in concurrency_levels:
+        trial = await _run_policy_trial(
+            name=f"{policy_name}-envelope-{concurrency}",
+            policy=policy,
+            traffic={
+                "requests": max(24, concurrency * 2),
+                "concurrency": concurrency,
+                "failure_every": failure_every,
+            },
+        )
+        slo_pass = (
+            trial["success_rate"] >= min_success_rate
+            and trial["p95_ms"] <= target_p95_ms
+        )
+        points.append(
+            {
+                "concurrency": concurrency,
+                "requests": max(24, concurrency * 2),
+                "slo_pass": slo_pass,
+                "success_rate": trial["success_rate"],
+                "p95_ms": trial["p95_ms"],
+                "admitted_rps": trial["throughput_rps"],
+                "shed_requests": trial["shed_requests"],
+                "backend_calls_per_100_success": trial[
+                    "backend_calls_per_100_success"
+                ],
+            }
+        )
+
+    safe_points = [point for point in points if point["slo_pass"]]
+    max_safe = max(
+        (point["concurrency"] for point in safe_points),
+        default=None,
+    )
+    first_unsafe = next(
+        (
+            point["concurrency"]
+            for point in points
+            if not point["slo_pass"]
+            and (max_safe is None or point["concurrency"] > max_safe)
+        ),
+        None,
+    )
+    if first_unsafe is None:
+        scale_before = max_safe
+    else:
+        lower_safe = [
+            point["concurrency"]
+            for point in safe_points
+            if point["concurrency"] < first_unsafe
+        ]
+        scale_before = max(lower_safe, default=None)
+
+    return {
+        "method": "measured_concurrency_sweep",
+        "concurrency_levels": concurrency_levels,
+        "points": points,
+        "max_verified_concurrency": max_safe,
+        "first_unsafe_concurrency": first_unsafe,
+        "scale_before_concurrency": scale_before,
+        "target_p95_ms": target_p95_ms,
+        "min_success_rate": min_success_rate,
     }
 
 
