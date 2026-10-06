@@ -85,7 +85,7 @@ summary::-webkit-details-marker{display:none}summary small{font-weight:400;color
       <p>같은 트래픽을 3개 서빙 정책에 실제 replay하고, 성공률·successful-request p95·admitted throughput·모델 호출 횟수를 비교해 <b>왜 이 설정을 골랐는지 Decision Receipt로 남깁니다.</b></p>
     </div>
     <div class="hero-action">
-      <button class="primary" onclick="scrollGovernor()">같은 트래픽으로 정책 선택해보기</button>
+      <button class="primary" onclick="runGovernorFromHero()">SLO Governor 실행</button>
       <button class="text-link" onclick="document.getElementById('evidence').scrollIntoView({behavior:'smooth'})">실행 증거·코드 경로 보기</button>
     </div>
   </div>
@@ -155,7 +155,7 @@ let selectedProfile='flash_crowd';let selectedConfig=null;
 const $=id=>document.getElementById(id);
 function esc(v){return String(v).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
 async function api(url,options={}){const r=await fetch(url,options);let b={};try{b=await r.json()}catch(e){}if(!r.ok)throw new Error(b.detail||('HTTP '+r.status));return b}
-function scrollGovernor(){$('governor').scrollIntoView({behavior:'smooth',block:'start'})}
+function scrollGovernor(){$('governor').scrollIntoView({behavior:'smooth',block:'start'})}\nfunction runGovernorFromHero(){scrollGovernor();setTimeout(runGovernor,450)}
 function chooseProfile(name){selectedProfile=name;document.querySelectorAll('[data-profile]').forEach(btn=>btn.classList.toggle('active',btn.dataset.profile===name))}
 function pct(v){return (v*100).toFixed(v*100===100?0:1)+'%'}
 function policyLabel(name){return {latency_guard:'Latency Guard',throughput_guard:'Throughput Guard',availability_guard:'Availability Guard'}[name]||name}
