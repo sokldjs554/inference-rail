@@ -143,19 +143,20 @@ queue에 무제한 적재하지 않고 처리 가능한 요청만 admission하�
 - `docs/evidence/release-verification-final.json` / `release-benchmark-final.json`
 - 기존 초기 반복 benchmark: `benchmark-run-1.json` ~ `benchmark-run-3.json`
 
-## 현재 실행 환경에서 검증하지 못한 부분
+## 추가 runtime 검증으로 해소한 항목
 
-이 환경에는 Docker daemon / kubectl / GPU runtime이 없었습니다. 따라서 다음은 코드/manifest와 정적 contract만 준비했고 실제 runtime 성공으로 보고하지 않습니다.
+초기 실행 환경에서 직접 확인하지 못했던 Docker/Kubernetes/Triton 항목은 GitHub Actions Linux runner에서 별도 runtime workflow로 다시 검증했습니다.
 
-- `docker build`
-- `docker compose up` 전체 stack
-- Kubernetes rollout
-- CPU HPA 실제 scale-out
-- KEDA queue metric 실제 scale-out
-- 실제 NVIDIA Triton Server
-- 실제 GPU utilization/VRAM benchmark
+현재까지 실제 runtime으로 확인한 항목:
 
-실제 cluster/GPU 환경에서 이 항목을 수행하기 전까지는 production-grade runtime 완료라고 표현하지 않습니다.
+- Docker image build / 실제 container smoke
+- Docker Compose 전체 observability stack
+- kind Kubernetes 1.37 rollout
+- Metrics Server 기반 CPU HPA scale-out
+- Prometheus/KEDA 기반 queue saturation scale-out
+- NVIDIA Triton Inference Server 2.73.0 실제 container + CPU Python backend
+
+현재 남은 미검증 범위는 **실제 GPU-backed model inference와 GPU utilization/VRAM/throughput**입니다.
 
 
 ## GitHub Actions / Docker runtime 검증
@@ -188,3 +189,66 @@ Actions: https://github.com/sokldjs554/inference-rail/actions/runs/37438191739
 - 브라우저에서 `정상 요청` 버튼 1회 실행: HTTP 200, `primary-model`, `fallback_used=false`, batch size 1
 
 원본 요약은 `docs/evidence/public-render-smoke.json`에 보존했습니다.
+
+
+## Kubernetes 실제 runtime — 2026-10-06
+
+성공 run: https://github.com/sokldjs554/inference-rail/actions/runs/37451336671
+
+- kind: **v0.33.0**
+- Kubernetes: **1.37**
+- application rollout + Service smoke: **pass**
+- Metrics Server: **v0.9.0**
+- HPA 관측 CPU: **61% / CI target 5%**
+- HPA scale: **2 → 6 desired replicas**
+- Prometheus + KEDA: **2.21.0**
+- queue saturation external metric: **500m**
+- CI KEDA target: **400m (0.40)**
+- KEDA scale: **2 → 3 desired replicas**
+- production HPA target: **65% 유지**
+- production KEDA threshold: **0.60 유지**
+
+CI의 낮은 임계값은 실제 control path를 안정적으로 재현하기 위한 live-object patch이며 운영 manifest 값은 변경하지 않았습니다.
+
+영구 요약: `docs/evidence/k8s-runtime-summary.json`
+
+## 실제 NVIDIA Triton runtime — 2026-10-06
+
+성공 run: https://github.com/sokldjs554/inference-rail/actions/runs/37450818648
+
+- NVIDIA container: **26.09-py3**
+- Triton Inference Server: **2.73.0**
+- model: `text_classifier` Python backend / **KIND_CPU**
+- direct Triton V2 batch: **4 / HTTP 200**
+- gateway concurrent requests: **8**
+- gateway observed batch size: **8**
+- backend: **triton:text_classifier**
+- fallback: **false**
+- primary failures/timeouts: **0 / 0**
+- breaker: **closed**
+
+이 결과는 stub이 아닌 실제 Triton Server runtime입니다. 단, CPU instance이므로 GPU 성능 결과는 아닙니다.
+
+영구 요약: `docs/evidence/triton-runtime-summary.json`
+
+## Docker Compose observability runtime — 2026-10-06
+
+성공 run: https://github.com/sokldjs554/inference-rail/actions/runs/37452240152
+
+실제 기동한 구성:
+
+- InferenceRail app
+- Prometheus 2.55.1
+- Grafana 11.2.2
+- Jaeger 1.62.0
+- OpenTelemetry Collector 0.111.0
+
+예측 요청 이후:
+
+- app health/predict: **pass**
+- Prometheus `inference_requests_total` query: **non-empty**
+- Grafana database health: **ok**
+- Jaeger services: **inference-rail 확인**
+- Jaeger trace query: **traceID 확인**
+
+영구 요약: `docs/evidence/compose-runtime-summary.json`

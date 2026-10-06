@@ -1,0 +1,35 @@
+{
+  "passed": true,
+  "verified_at": "2026-10-06",
+  "workflow_run_id": 37450818648,
+  "workflow_url": "https://github.com/sokldjs554/inference-rail/actions/runs/37450818648",
+  "commit": "e20db0989f8f928d38e06e3684e1c3779793b588",
+  "artifact": {
+    "id": 11405678297,
+    "digest": "sha256:1a6ba43aae5012325e13d10ca1342286dc48b4648c4a084ed51819193b527413"
+  },
+  "runtime": {
+    "container": "nvcr.io/nvidia/tritonserver:26.09-py3",
+    "triton_release": "2.73.0",
+    "model": "text_classifier",
+    "backend": "python",
+    "instance_kind": "CPU"
+  },
+  "direct_v2": {
+    "http_status": 200,
+    "batch_size": 4
+  },
+  "gateway": {
+    "requests": 8,
+    "batch_sizes": [
+      8
+    ],
+    "backends": [
+      "triton:text_classifier"
+    ],
+    "fallback_used": false,
+    "primary_failures": 0,
+    "primary_timeouts": 0,
+    "breaker_state": "closed"
+  }
+}

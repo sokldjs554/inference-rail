@@ -4,13 +4,15 @@
 
 토스뱅크 ML Backend Engineer 지원을 목표로, 단순한 FastAPI 예제가 아니라 **대규모 요청을 받는 모델 서빙 서버에서 실제로 문제가 되는 queue saturation, tail latency, backend timeout, 장애 전파, fallback, observability, autoscaling**을 한 저장소에서 재현하도록 만들었습니다.
 
-> 기본 backend는 deterministic mock입니다. 모델 정확도를 꾸미는 프로젝트가 아니라 서버 구조의 특성을 반복 측정하기 위한 선택입니다. 실제 모델 서버 경계는 `BACKEND_MODE=triton`으로 분리했고, NVIDIA Triton V2 HTTP request/response contract를 사용하는 adapter와 별도 프로세스 기반 contract 검증을 포함했습니다.
+> 기본 공개 데모 backend는 deterministic mock입니다. 모델 정확도를 꾸미는 프로젝트가 아니라 서버 구조의 특성을 반복 측정하기 위한 선택입니다. 실제 모델 서버 경계는 `BACKEND_MODE=triton`으로 분리했고, 빠른 contract stub 회귀 테스트와 별도로 **NVIDIA Triton Inference Server 2.73.0(26.09) 실제 컨테이너를 CPU Python backend로 기동해 gateway → Triton 경로까지 검증**했습니다.
 
 ## 바로 확인하기
 
 - **공개 데모:** https://inference-rail-demo.onrender.com
-- **GitHub Actions 검증:** https://github.com/sokldjs554/inference-rail/actions/runs/37438191739
-- **외부 smoke 검증 당시 revision:** `a37d74082ba26af1f9a5e596d68d2acf5fffcdcd`
+- **일반 CI + Docker smoke:** https://github.com/sokldjs554/inference-rail/actions/runs/37452240156
+- **Kubernetes HPA/KEDA runtime:** https://github.com/sokldjs554/inference-rail/actions/runs/37451336671
+- **실제 NVIDIA Triton runtime:** https://github.com/sokldjs554/inference-rail/actions/runs/37450818648
+- **Compose observability runtime:** https://github.com/sokldjs554/inference-rail/actions/runs/37452240152
 
 공개 데모는 Render Singapore에서 `BACKEND_MODE=mock`으로 운영합니다. 배포 후 외부 브라우저에서 `/`, `/health/ready`, `/ops/build`, `/ops/status`를 확인했고, 데모의 `정상 요청` 버튼을 실제 클릭해 **HTTP 200 / primary-model / fallback=false** 응답까지 검증했습니다.
 
@@ -55,6 +57,11 @@ CPU HPA or queue-saturation KEDA scaling
 | SLO gate | **pass** |
 | GitHub Actions | **lint + release verification + Docker build + container smoke pass** |
 | Render 공개 배포 | **live / revision 일치 / browser predict pass** |
+| 실제 NVIDIA Triton Server | **2.73.0 / direct V2 batch 4 / gateway batch 8 / fallback 0** |
+| kind Kubernetes 1.37 rollout | **pass** |
+| Metrics Server + CPU HPA | **실제 2 → 6 replicas scale-out** |
+| Prometheus + KEDA | **실제 2 → 3 replicas scale-out** |
+| Docker Compose observability | **Prometheus metric + Grafana health + Jaeger trace pass** |
 
 벤치마크 조건은 `160 requests / concurrency 24`, deterministic mock workload입니다. **실제 GPU 또는 실제 모델의 성능 수치가 아니라 gateway batching 구조의 차이를 분리해 측정한 값**입니다.
 
@@ -66,6 +73,9 @@ CPU HPA or queue-saturation KEDA scaling
 - `docs/evidence/release-benchmark-run-1.json` ~ `release-benchmark-run-3.json`
 - `docs/verification-20261006.md`
 - `docs/evidence/public-render-smoke.json`
+- `docs/evidence/k8s-runtime-summary.json`
+- `docs/evidence/triton-runtime-summary.json`
+- `docs/evidence/compose-runtime-summary.json`
 
 ## 왜 이 구조인가
 
@@ -149,9 +159,12 @@ TRITON_LABEL_OUTPUT=LABEL
 TRITON_SCORE_OUTPUT=SCORE
 ```
 
-release verification은 별도 프로세스로 Triton V2 contract stub을 실행하고, gateway도 별도 프로세스로 `BACKEND_MODE=triton`으로 띄웁니다. 그 상태에서 8개의 동시 요청을 보내 **실제 HTTP network boundary를 왕복해 batch size 8, `triton:text_classifier`, fallback 0건**을 확인합니다.
+검증은 두 단계로 나눴습니다.
 
-> 이 검증은 NVIDIA Triton HTTP contract adapter의 동작을 확인하는 테스트입니다. 현재 실행 환경에서는 실제 NVIDIA Triton Server/GPU를 띄우지 않았으므로 실제 Triton runtime 성능 검증이라고 주장하지 않습니다.
+1. **빠른 회귀 테스트:** 별도 프로세스 Triton V2 contract stub과 gateway를 연결해 8개 동시 요청이 batch size 8, `triton:text_classifier`, fallback 0으로 처리되는지 확인합니다.
+2. **실제 Triton runtime:** GitHub Actions에서 NVIDIA 공식 `26.09-py3` 컨테이너(Triton 2.73.0)를 실제로 띄우고 CPU Python backend 모델을 로드했습니다. Triton V2 endpoint에 직접 batch 4 요청을 보낸 뒤, InferenceRail에서 동시 8개 요청을 보내 **실제 gateway → Triton Server → Python backend 경로에서 batch size 8, fallback 0, primary failure/timeout 0**을 확인했습니다.
+
+실제 Triton runtime 증거는 `docs/evidence/triton-runtime-summary.json`과 Actions artifact에 보존합니다. 이 검증은 **실제 Triton Server runtime** 검증이지만 GPU runner가 아니므로 GPU latency/VRAM 성능 검증으로 표현하지 않습니다.
 
 ## 빠른 실행
 
@@ -319,7 +332,19 @@ sum(inference_queue_capacity)
 
 > `hpa.yaml`과 `keda-scaledobject.yaml`을 같은 Deployment에 동시에 적용하지 않습니다. KEDA 예시는 cluster에 KEDA와 Prometheus가 설치되어 있다는 전제입니다.
 
-`k8s/servicemonitor.yaml`은 Prometheus Operator 환경용 optional contract입니다.
+### 실제 Kubernetes runtime 검증
+
+GitHub Actions에서 kind v0.33.0 / Kubernetes 1.37 cluster를 실제 생성하고 현재 image를 load해 rollout했습니다.
+
+- Service 경유 health/build/predict smoke: **pass**
+- Metrics Server v0.9.0 설치 후 CPU HPA: **2 → 6 desired replicas**
+- Prometheus + KEDA 2.21.0 설치 후 queue saturation scaler: **2 → 3 desired replicas**
+- HPA CI target: 5% (control-path 검증용), 운영 manifest: 65%
+- KEDA CI threshold: 0.40 (deterministic CI workload 검증용), 운영 manifest: 0.60 유지
+
+즉 운영 임계값을 CI 값으로 바꾼 것이 아니라, **운영 manifest는 그대로 두고 CI의 live object만 패치해 실제 control plane의 scale-out을 증명**했습니다.
+
+`k8s/servicemonitor.yaml`은 Prometheus Operator 환경용 optional contract입니다. 상세 증거는 `docs/k8s-runtime.md`와 `docs/evidence/k8s-runtime-summary.json`에 기록했습니다.
 
 ## 디렉터리 구조
 
@@ -346,6 +371,7 @@ inference-rail/
 │   ├── slo_gate.py
 │   ├── triton_contract_stub.py
 │   ├── public_smoke.py
+│   ├── gpu_runtime_benchmark.py
 │   └── validate_manifests.py
 ├── docs/
 │   ├── design-decisions.md
@@ -393,14 +419,25 @@ inference-rail/
 - 빌드한 Docker container 실제 기동 후 health/build/predict smoke
 - Render 공개 배포 및 외부 브라우저 정상 예측
 
-아직 실제 runtime 검증하지 못한 것:
+추가로 runtime 검증 완료:
 
-- Docker Compose의 Prometheus/Grafana/Jaeger 전체 multi-container stack 기동
-- 실제 Kubernetes cluster에서 rollout / HPA / KEDA scale-out
-- 실제 NVIDIA Triton Server + GPU inference
-- 실제 GPU utilization / VRAM / model-level throughput
+- Docker Compose 전체 stack: app + Prometheus + Grafana + Jaeger + OpenTelemetry Collector
+- 실제 예측 요청 후 Prometheus metric 수집 확인
+- Jaeger에서 `inference-rail` service와 실제 trace 조회
+- kind Kubernetes rollout
+- Metrics Server 기반 CPU HPA 실제 scale-out
+- Prometheus/KEDA queue metric 기반 실제 scale-out
+- NVIDIA Triton Inference Server 2.73.0 실제 container + CPU Python backend
 
-따라서 이 저장소의 현재 수치를 실제 은행 production SLA나 GPU 성능으로 주장하지 않습니다.
+아직 실제로 검증하지 못한 것은 **GPU가 필요한 항목**입니다.
+
+- 실제 GPU-backed model inference
+- GPU utilization / VRAM / power
+- GPU 모델 단위 throughput 및 p50/p95/p99
+
+이를 위해 `scripts/gpu_runtime_benchmark.py`를 준비했습니다. NVIDIA GPU와 실제 GPU-backed Triton model이 있는 환경에서 바로 latency/throughput과 `nvidia-smi` GPU 지표를 같은 JSON 증거로 수집할 수 있습니다.
+
+따라서 mock benchmark나 CPU Triton 결과를 실제 은행 production SLA 또는 GPU 성능으로 주장하지 않습니다.
 
 ## License
 

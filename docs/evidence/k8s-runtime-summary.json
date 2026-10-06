@@ -1,0 +1,36 @@
+{
+  "passed": true,
+  "verified_at": "2026-10-06",
+  "workflow_run_id": 37451336671,
+  "workflow_url": "https://github.com/sokldjs554/inference-rail/actions/runs/37451336671",
+  "commit": "fe45f0e512898adbeca47c23844b26ed95e8a3dd",
+  "artifact": {
+    "id": 11406358252,
+    "digest": "sha256:9a1deeaf90f738bb38d7cfddcef9a1c08fac4061f11d5c4fc78fc1c8003550eb"
+  },
+  "cluster": {
+    "kind": "v0.33.0",
+    "kubernetes": "1.37",
+    "rollout_smoke": "pass"
+  },
+  "hpa": {
+    "metrics_server": "v0.9.0",
+    "initial_replicas": 2,
+    "desired_replicas": 6,
+    "observed_cpu_pct": 61,
+    "ci_target_cpu_pct": 5,
+    "production_target_cpu_pct": 65,
+    "able_to_scale": "SucceededRescale",
+    "scaling_active": "ValidMetricFound"
+  },
+  "keda": {
+    "version": "2.21.0",
+    "prometheus_query": "sum(inference_queue_depth) / clamp_min(sum(inference_queue_capacity), 1)",
+    "observed_external_metric": 0.5,
+    "ci_threshold": 0.4,
+    "production_threshold": 0.6,
+    "initial_replicas": 2,
+    "desired_replicas": 3,
+    "scaled_object_ready": true
+  }
+}

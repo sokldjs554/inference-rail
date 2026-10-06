@@ -28,7 +28,8 @@ KEDA 검증에서는 queue saturation 자체가 scale signal이 되도록 임시
 - queue capacity: 16
 - batch size: 1
 - mock base latency: 250 ms
-- KEDA threshold: 0.60
+- production KEDA threshold: 0.60
+- CI live-object KEDA threshold: 0.40
 
 Prometheus는 /metrics를 scrape하고 기존 k8s/keda-scaledobject.yaml의 query를 그대로 평가합니다.
 
@@ -43,3 +44,32 @@ workflow artifact k8s-runtime-evidence에 다음을 보존합니다.
 - Prometheus queue query 결과
 - Metrics Server kubectl top
 - KEDA operator log
+
+
+## 실제 성공 결과
+
+성공 workflow: https://github.com/sokldjs554/inference-rail/actions/runs/37451336671
+
+### HPA
+
+Metrics Server가 실제 resource metric을 제공했고 HPA는 다음 상태를 기록했습니다.
+
+- CPU current / CI target: **61% / 5%**
+- replicas: **2 → 6 desired**
+- AbleToScale: **True / SucceededRescale**
+- ScalingActive: **True / ValidMetricFound**
+
+### KEDA
+
+Prometheus에서 queue saturation을 external metric으로 제공했고 KEDA가 생성한 HPA는 다음 값을 관측했습니다.
+
+- external metric: **500m**
+- CI target: **400m**
+- replicas: **2 → 3 desired**
+- ScaledObject Ready: **True**
+
+운영용 `k8s/keda-scaledobject.yaml`의 threshold 0.60은 변경하지 않았습니다. CI workload가 약 0.50에서 안정화되므로 workflow에서 생성된 live ScaledObject만 0.40으로 패치했습니다.
+
+artifact ID: **11406358252**
+
+artifact digest: `sha256:9a1deeaf90f738bb38d7cfddcef9a1c08fac4061f11d5c4fc78fc1c8003550eb`
