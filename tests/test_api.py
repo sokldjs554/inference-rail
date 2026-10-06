@@ -16,7 +16,7 @@ def test_health_and_prediction():
         assert "MISSION CONTROL" in demo.text
         build_body = client.get("/ops/build").json()
         assert build_body["app"] == "InferenceRail"
-        assert build_body["version"] == "0.4.0"
+        assert build_body["version"] == "0.5.0"
         assert build_body["backend_mode"] == "mock"
         status_body = client.get("/ops/status").json()
         assert status_body["backend_mode"] == "mock"
@@ -85,3 +85,38 @@ def test_policy_lab_compares_two_real_policy_paths():
             assert "p95_ms" in result
             assert "throughput_rps" in result
             assert "status_counts" in result
+
+
+def test_slo_governor_emits_decision_receipt():
+    with TestClient(app) as client:
+        response = client.post(
+            "/v1/slo-decision",
+            json={
+                "profile": "flash_crowd",
+                "target_p95_ms": 250,
+                "min_success_rate": 0.995,
+            },
+        )
+        assert response.status_code == 200
+        body = response.json()
+        receipt = body["decision_receipt"]
+        assert receipt["selected_policy"] in {
+            "latency_guard",
+            "throughput_guard",
+            "availability_guard",
+        }
+        assert len(receipt["workload_fingerprint"]) == 16
+        assert receipt["objective"]["target_p95_ms"] == 250
+        assert set(receipt["evidence"]) == {
+            "latency_guard",
+            "throughput_guard",
+            "availability_guard",
+        }
+        for result in receipt["evidence"].values():
+            assert "slo_pass" in result
+            assert "backend_calls" in result
+            assert "backend_calls_per_100_success" in result
+            assert "throughput_rps" in result
+            assert "p95_ms" in result
+        selected = receipt["evidence"][receipt["selected_policy"]]
+        assert selected["policy"] == receipt["selected_config"]

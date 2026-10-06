@@ -15,7 +15,7 @@ def _env_float(name: str, default: float) -> float:
 @dataclass(frozen=True)
 class Settings:
     app_name: str = os.getenv("APP_NAME", "InferenceRail")
-    app_version: str = os.getenv("APP_VERSION", "0.4.0")
+    app_version: str = os.getenv("APP_VERSION", "0.5.0")
     revision: str = os.getenv("GIT_SHA") or os.getenv("RENDER_GIT_COMMIT", "local")
     environment: str = os.getenv("APP_ENV", "local")
     backend_mode: str = os.getenv("BACKEND_MODE", "mock").lower()
