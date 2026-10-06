@@ -11,7 +11,7 @@ def test_health_and_prediction():
         assert demo.status_code == 200
         assert "InferenceRail" in demo.text
         assert "대규모 AI 추론을" in demo.text
-        assert "SLO Governor" in demo.text
+        assert "SLO Governor" in demo.text\n        assert "SLO Governor 실행" in demo.text\n        assert "}\\\\nfunction" not in demo.text
         assert "Decision Receipt" in demo.text
         assert "backend calls / 100 success" in demo.text
         build_body = client.get("/ops/build").json()

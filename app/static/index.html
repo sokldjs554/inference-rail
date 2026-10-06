@@ -155,7 +155,8 @@ let selectedProfile='flash_crowd';let selectedConfig=null;
 const $=id=>document.getElementById(id);
 function esc(v){return String(v).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
 async function api(url,options={}){const r=await fetch(url,options);let b={};try{b=await r.json()}catch(e){}if(!r.ok)throw new Error(b.detail||('HTTP '+r.status));return b}
-function scrollGovernor(){$('governor').scrollIntoView({behavior:'smooth',block:'start'})}\nfunction runGovernorFromHero(){scrollGovernor();setTimeout(runGovernor,450)}
+function scrollGovernor(){$('governor').scrollIntoView({behavior:'smooth',block:'start'})}
+function runGovernorFromHero(){scrollGovernor();setTimeout(runGovernor,450)}
 function chooseProfile(name){selectedProfile=name;document.querySelectorAll('[data-profile]').forEach(btn=>btn.classList.toggle('active',btn.dataset.profile===name))}
 function pct(v){return (v*100).toFixed(v*100===100?0:1)+'%'}
 function policyLabel(name){return {latency_guard:'Latency Guard',throughput_guard:'Throughput Guard',availability_guard:'Availability Guard'}[name]||name}

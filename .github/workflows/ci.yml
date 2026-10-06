@@ -30,6 +30,9 @@ jobs:
       - name: Lint
         run: ruff check .
 
+      - name: Demo JavaScript syntax
+        run: node scripts/validate-demo-js.mjs
+
       - name: Release verification
         env:
           GIT_SHA: ${{ github.sha }}
