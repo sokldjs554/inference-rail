@@ -86,19 +86,15 @@ summary::-webkit-details-marker{display:none}summary small{font-weight:400;color
     </div>
     <div class="hero-action">
       <button class="primary" onclick="scrollGovernor()">같은 트래픽으로 정책 선택해보기</button>
-      <button class="text-link" onclick="document.getElementById('evidence').scrollIntoView({behavior:'smooth'})">구현 증거 보기</button>
+      <button class="text-link" onclick="document.getElementById('evidence').scrollIntoView({behavior:'smooth'})">실행 증거·코드 경로 보기</button>
     </div>
   </div>
   <aside class="hero-map">
     <div class="arch">
       <div class="arch-title">PRODUCTION REQUEST PATH</div>
-      <div class="flow"><div class="node"><b>AI request</b><small>deadline + SLO class</small></div><div class="arrow">→</div><div class="node"><b>InferenceRail</b><small>admission / queue</small></div></div>
-      <div class="flow" style="margin-top:10px"><div class="node"><b>Dynamic batch</b><small>latency ↔ throughput</small></div><div class="arrow">→</div><div class="node"><b>Triton backend</b><small>primary model</small></div></div>
-      <div class="branch">
-        <div class="bad">queue pressure ↑ → 429 load shedding</div>
-        <div class="bad">model failure → circuit open</div>
-        <div class="good">fallback → recovery probe</div>
-      </div>
+      <div class="flow"><div class="node"><b>AI request</b><small>deadline + SLO</small></div><div class="arrow">→</div><div class="node"><b>InferenceRail</b><small>admission · batch · fallback</small></div></div>
+      <div class="flow" style="margin-top:10px"><div class="node" style="grid-column:1/2"><b>Overload</b><small>fast shed instead of hidden queue</small></div><div class="arrow">↘</div><div class="node"><b>Triton</b><small>primary model serving</small></div></div>
+      <div class="branch"><div><span class="bad">failure</span> → circuit open → <span class="good">fallback / recovery</span></div></div>
     </div>
   </aside>
 </section>
