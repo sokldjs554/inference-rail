@@ -1,6 +1,6 @@
 # InferenceRail
 
-**대규모 AI 추론을 SLO 안에서 처리하고, 같은 트래픽을 여러 서빙 정책으로 재생해 최적 설정의 근거까지 남기는 ML backend gateway입니다.**
+**SLO를 입력하면 동일 workload를 실제 serving 경로에 replay하고, 안전한 concurrency 경계와 배포 설정까지 Decision Receipt로 발행하는 ML backend gateway입니다.**
 
 토스뱅크 ML Backend Engineer 지원을 목표로, 단순한 FastAPI 예제가 아니라 **대규모 요청을 받는 모델 서빙 서버에서 실제로 문제가 되는 queue saturation, tail latency, backend timeout, 장애 전파, fallback, observability, autoscaling**을 한 저장소에서 재현하도록 만들었습니다.
 
@@ -18,45 +18,19 @@
 
 ## 공개 데모에서 보는 것
 
-v0.5의 전면 기능은 **SLO Governor** 하나입니다.
+v0.6의 전면 기능은 **SLO-to-Config Compiler**입니다.
 
-같은 synthetic workload를 아래 세 정책에 실제로 replay합니다.
+개발자가 `target p95`, `minimum success rate`, traffic profile을 입력하면 다음 순서로 실행합니다.
 
-- `latency_guard`: 짧은 queue / 작은 batch / 짧은 timeout
-- `throughput_guard`: 큰 batch / 넉넉한 admission / 처리량 우선
-- `availability_guard`: 빠른 primary timeout / 낮은 breaker threshold / fallback 우선
+1. 동일 workload를 `latency_guard / throughput_guard / availability_guard` 세 정책의 실제 `DynamicBatcher + CircuitBreaker + ResilientBackend` 경로에 replay합니다.
+2. SLO를 통과한 후보 중 `backend calls / 100 successful requests`가 가장 낮은 정책을 선택합니다.
+3. 선택한 정책으로 concurrency `4 / 8 / 16 / 24 / 32 / 40`을 실제 sweep합니다.
+4. **마지막 SLO 통과 지점**, **처음 실패한 지점**, **scale 전에 대응할 지점**을 Measured Safe Operating Envelope로 기록합니다.
+5. 선택한 batch/queue/timeout/breaker 설정과 측정된 concurrency 경계를 하나의 **Deployment Contract**로 발행합니다.
 
-각 정책은 별도의 실제 `DynamicBatcher + CircuitBreaker + ResilientBackend` 인스턴스에서 동일한 요청 수·동시성·장애 스케줄을 실행합니다.
+핵심 차별점은 “서빙 기능이 많다”가 아닙니다. **왜 이 설정으로 배포해야 하는지를 동일 workload의 counterfactual replay와 실제 capacity sweep으로 설명할 수 있다는 것**입니다.
 
-Decision Receipt는 다음을 비교합니다.
-
-- success rate
-- successful-request p95
-- admitted throughput
-- shed requests
-- backend calls
-- **backend calls / 100 successful requests** — 임의의 클라우드 가격 대신 사용하는 compute pressure proxy
-
-선택 규칙은 단순합니다.
-
-1. 지정한 p95와 success SLO를 모두 통과한 정책만 후보로 남깁니다.
-2. 후보 중 `backend calls / 100 success`가 가장 낮은 정책을 선택합니다.
-3. 동률이면 더 낮은 p95, 그 다음 더 높은 admitted throughput을 사용합니다.
-4. 모든 정책이 SLO를 실패하면 success rate → p95 → backend call 비용 순으로 best-effort 정책을 고릅니다.
-
-공개 데모는 shared runtime을 직접 변경하지 않고 격리 replay 후 **권장 runtime config와 탈락 이유를 receipt로 발행**합니다. Request Flight Recorder, Shadow model comparison, Kubernetes/Triton/Jaeger 증거는 첫 화면에서 제거하고 개발자용 Engineering Evidence 영역으로 이동했습니다.
-
-### 공개 SLO Governor 실행 예시
-
-공개 Render 데모에서 `flash_crowd / p95 250ms / success 99.5%` 조건으로 동일 workload를 replay한 한 번의 측정 예시입니다.
-
-| 정책 | SLO | Success | p95 | Admitted RPS | Backend calls / 100 success | Shed |
-|---|---:|---:|---:|---:|---:|---:|
-| Latency Guard | FAIL | 16.7% | 97.54ms | 81.68 | 25.0 | 40 |
-| **Throughput Guard** | **PASS** | **100%** | **238.01ms** | **134.31** | **12.5** | **0** |
-| Availability Guard | FAIL | 33.3% | 194.57ms | 81.98 | 25.0 | 32 |
-
-Decision Receipt는 **Throughput Guard**를 선택했습니다. workload fingerprint는 `11c1628c98148a1a`이며, 원본 요약은 `docs/evidence/slo-governor-public.json`에 남겼습니다.
+Request Flight Recorder, Shadow model comparison, Kubernetes/Triton/Jaeger 증거는 첫 화면에서 제거하고 개발자용 Deep Dive 영역으로 이동했습니다.
 
 ## 한눈에 보기
 
