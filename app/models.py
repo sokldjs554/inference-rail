@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -16,6 +18,10 @@ class PredictResponse(BaseModel):
     batch_size: int
     queue_ms: float
     service_ms: float
+
+
+class PolicyLabRequest(BaseModel):
+    profile: Literal["steady", "flash_crowd", "degraded_primary"] = "flash_crowd"
 
 
 class RuntimeStatus(BaseModel):

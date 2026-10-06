@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from opentelemetry import trace
@@ -11,6 +12,7 @@ from opentelemetry.trace import Link, SpanContext
 from app.backends.base import InferenceBackend, ModelResult
 
 _TRACER = trace.get_tracer(__name__)
+EventHook = Callable[[str, str, dict[str, object]], None]
 
 
 class QueueFullError(RuntimeError):
@@ -32,6 +34,8 @@ class _Item:
     deadline_at: float | None
     future: asyncio.Future[BatchOutcome]
     span_context: SpanContext | None
+    request_id: str | None
+    event_hook: EventHook | None
 
 
 class DynamicBatcher:
@@ -73,8 +77,6 @@ class DynamicBatcher:
         if self._worker is None:
             await self.backend.aclose()
             return
-        # Queue.join() also waits for items already removed from the queue but still
-        # being processed, so in-flight inference is drained before worker cancellation.
         with contextlib.suppress(TimeoutError):
             await asyncio.wait_for(self.queue.join(), timeout=self.drain_timeout_s)
         self._worker.cancel()
@@ -88,7 +90,14 @@ class DynamicBatcher:
             self.queue.task_done()
         await self.backend.aclose()
 
-    async def submit(self, text: str, *, timeout_ms: int | None = None) -> BatchOutcome:
+    async def submit(
+        self,
+        text: str,
+        *,
+        timeout_ms: int | None = None,
+        request_id: str | None = None,
+        event_hook: EventHook | None = None,
+    ) -> BatchOutcome:
         loop = asyncio.get_running_loop()
         future: asyncio.Future[BatchOutcome] = loop.create_future()
         now = time.monotonic()
@@ -100,11 +109,24 @@ class DynamicBatcher:
             deadline_at=deadline_at,
             future=future,
             span_context=current_span_context if current_span_context.is_valid else None,
+            request_id=request_id,
+            event_hook=event_hook,
         )
         try:
             self.queue.put_nowait(item)
         except asyncio.QueueFull as exc:
+            self._emit(
+                item,
+                "rejected",
+                {"reason": "queue_full", "queue_depth": self.queue.qsize()},
+            )
             raise QueueFullError("inference queue is full") from exc
+
+        self._emit(
+            item,
+            "queued",
+            {"queue_depth": self.queue.qsize(), "capacity": self.queue.maxsize},
+        )
 
         if timeout_ms is None:
             return await future
@@ -113,6 +135,7 @@ class DynamicBatcher:
             return await asyncio.wait_for(asyncio.shield(future), timeout=timeout_ms / 1000)
         except TimeoutError:
             future.cancel()
+            self._emit(item, "client_timeout", {"timeout_ms": timeout_ms})
             raise
 
     async def _run(self) -> None:
@@ -143,6 +166,7 @@ class DynamicBatcher:
                     item.deadline_at is not None and current >= item.deadline_at
                 ):
                     self.expired_requests += 1
+                    self._emit(item, "deadline_expired", {})
                     if not item.future.done():
                         item.future.set_exception(
                             TimeoutError("inference request deadline exceeded")
@@ -155,17 +179,41 @@ class DynamicBatcher:
                 continue
 
             started = time.monotonic()
+            for item in active:
+                self._emit(
+                    item,
+                    "batch_assigned",
+                    {
+                        "batch_size": len(active),
+                        "queue_ms": round((started - item.enqueued_at) * 1000, 2),
+                    },
+                )
             links = [Link(item.span_context) for item in active if item.span_context is not None]
             try:
                 with _TRACER.start_as_current_span("inference.batch", links=links) as span:
                     span.set_attribute("inference.batch.size", len(active))
                     span.set_attribute("inference.queue.depth_after_dequeue", self.queue.qsize())
+                    for item in active:
+                        self._emit(
+                            item,
+                            "backend_dispatched",
+                            {"router": "resilient-backend"},
+                        )
                     results = await self.backend.infer_batch([item.text for item in active])
                     service_ms = (time.monotonic() - started) * 1000
                     span.set_attribute("inference.batch.service_ms", service_ms)
                     if len(results) != len(active):
                         raise RuntimeError("backend returned unexpected result count")
                     for item, result in zip(active, results, strict=True):
+                        self._emit(
+                            item,
+                            "backend_result",
+                            {
+                                "backend": result.backend,
+                                "fallback_used": result.fallback_used,
+                                "service_ms": round(service_ms, 2),
+                            },
+                        )
                         if not item.future.cancelled():
                             item.future.set_result(
                                 BatchOutcome(
@@ -183,8 +231,14 @@ class DynamicBatcher:
                 raise
             except Exception as exc:
                 for item in active:
+                    self._emit(item, "backend_error", {"type": type(exc).__name__})
                     if not item.future.cancelled():
                         item.future.set_exception(exc)
             finally:
                 for _ in active:
                     self.queue.task_done()
+
+    @staticmethod
+    def _emit(item: _Item, stage: str, detail: dict[str, object]) -> None:
+        if item.request_id is not None and item.event_hook is not None:
+            item.event_hook(item.request_id, stage, detail)
