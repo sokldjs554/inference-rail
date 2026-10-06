@@ -46,6 +46,18 @@ Decision Receipt는 다음을 비교합니다.
 
 공개 데모는 shared runtime을 직접 변경하지 않고 격리 replay 후 **권장 runtime config와 탈락 이유를 receipt로 발행**합니다. Request Flight Recorder, Shadow model comparison, Kubernetes/Triton/Jaeger 증거는 첫 화면에서 제거하고 개발자용 Engineering Evidence 영역으로 이동했습니다.
 
+### 공개 SLO Governor 실행 예시
+
+공개 Render 데모에서 `flash_crowd / p95 250ms / success 99.5%` 조건으로 동일 workload를 replay한 한 번의 측정 예시입니다.
+
+| 정책 | SLO | Success | p95 | Admitted RPS | Backend calls / 100 success | Shed |
+|---|---:|---:|---:|---:|---:|---:|
+| Latency Guard | FAIL | 16.7% | 97.54ms | 81.68 | 25.0 | 40 |
+| **Throughput Guard** | **PASS** | **100%** | **238.01ms** | **134.31** | **12.5** | **0** |
+| Availability Guard | FAIL | 33.3% | 194.57ms | 81.98 | 25.0 | 32 |
+
+Decision Receipt는 **Throughput Guard**를 선택했습니다. workload fingerprint는 `11c1628c98148a1a`이며, 원본 요약은 `docs/evidence/slo-governor-public.json`에 남겼습니다.
+
 ## 한눈에 보기
 
 ```text

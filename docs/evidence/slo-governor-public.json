@@ -1,0 +1,48 @@
+{
+  "verified_at": "2026-10-07T00:00:00+09:00",
+  "public_url": "https://inference-rail-demo.onrender.com",
+  "commit": "c848b6c4f3780fef2bd01dbf7c6b4ab34ccbe691",
+  "profile": "flash_crowd",
+  "objective": {
+    "target_p95_ms": 250,
+    "min_success_rate": 0.995
+  },
+  "workload_fingerprint": "11c1628c98148a1a",
+  "selected_policy": "throughput_guard",
+  "status": "slo_met",
+  "evidence": {
+    "latency_guard": {
+      "slo_pass": false,
+      "success_rate": 0.167,
+      "p95_ms": 97.54,
+      "throughput_rps": 81.68,
+      "backend_calls_per_100_success": 25,
+      "shed_requests": 40
+    },
+    "throughput_guard": {
+      "slo_pass": true,
+      "success_rate": 1,
+      "p95_ms": 238.01,
+      "throughput_rps": 134.31,
+      "backend_calls_per_100_success": 12.5,
+      "shed_requests": 0
+    },
+    "availability_guard": {
+      "slo_pass": false,
+      "success_rate": 0.333,
+      "p95_ms": 194.57,
+      "throughput_rps": 81.98,
+      "backend_calls_per_100_success": 25,
+      "shed_requests": 32
+    }
+  },
+  "selected_config": {
+    "queue_capacity": 32,
+    "batch_size": 8,
+    "batch_wait_ms": 12,
+    "timeout_ms": 500,
+    "primary_timeout_ms": 460,
+    "breaker_threshold": 3
+  },
+  "note": "One measured public-demo run; latency and throughput vary slightly run-to-run."
+}
