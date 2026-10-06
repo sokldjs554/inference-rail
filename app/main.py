@@ -37,9 +37,9 @@ from app.models import (
     BuildInfo,
     PolicyLabRequest,
     PredictRequest,
-    SLODecisionRequest,
     PredictResponse,
     RuntimeStatus,
+    SLODecisionRequest,
 )
 from app.telemetry import configure_telemetry
 
