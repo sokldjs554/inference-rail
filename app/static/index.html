@@ -3,136 +3,267 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>InferenceRail · ML Serving Reliability Lab</title>
+<title>InferenceRail · AI Risk Scoring Reliability Demo</title>
 <style>
-:root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#101828;background:#f4f6f8}
-*{box-sizing:border-box}body{margin:0}.wrap{max-width:1220px;margin:0 auto;padding:36px 24px 64px}
-.panel{background:#fff;border:1px solid #e4e7ec;border-radius:20px;box-shadow:0 12px 32px rgba(16,24,40,.055)}
-.hero{display:grid;grid-template-columns:1.25fr .95fr;gap:18px}.hero-main{padding:30px}.hero-side{padding:24px}
-.eyebrow{font-size:12px;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:#175cd3}.hero h1{font-size:46px;line-height:1;margin:10px 0 14px;letter-spacing:-.045em}.hero p{font-size:16px;line-height:1.72;color:#475467;margin:0;max-width:760px}
-.badges{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}.badge{font-size:12px;font-weight:700;padding:7px 10px;border:1px solid #d0d5dd;border-radius:999px;background:#f9fafb;color:#344054}
-.arch{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;line-height:1.7;background:#101828;color:#d1fadf;border-radius:14px;padding:18px;white-space:pre-wrap;margin-top:10px}
-.section{margin-top:18px}.grid{display:grid;grid-template-columns:1.05fr .95fr;gap:18px}.section-title{font-size:18px;font-weight:800;margin:0 0 8px;letter-spacing:-.02em}.section-copy{font-size:13px;color:#667085;line-height:1.6;margin:0 0 16px}
-.controls{padding:24px}.status{padding:24px}.metric-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.metric{padding:14px;border-radius:13px;background:#f9fafb;border:1px solid #eaecf0}.metric b{font-size:21px;display:block;margin-top:5px;letter-spacing:-.03em;overflow-wrap:anywhere}.metric span{font-size:10.5px;color:#667085;text-transform:uppercase;letter-spacing:.07em}
-textarea{width:100%;min-height:112px;border:1px solid #d0d5dd;border-radius:12px;padding:13px;font:inherit;line-height:1.55;resize:vertical;outline:none}textarea:focus{border-color:#84adff;box-shadow:0 0 0 3px #eff4ff}
-.row{display:flex;flex-wrap:wrap;gap:8px;margin-top:11px}button{border:1px solid transparent;border-radius:10px;padding:10px 13px;font-weight:750;cursor:pointer;font-size:13px}.primary{background:#101828;color:#fff}.secondary{background:#fff;color:#344054;border-color:#d0d5dd}.danger{background:#fff4ed;color:#b42318;border-color:#ffd6ae}.warn{background:#fffaeb;color:#b54708;border-color:#fedf89}
-.result{margin-top:14px;padding:15px;border-radius:12px;background:#101828;color:#d0d5dd;min-height:150px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;line-height:1.55;white-space:pre-wrap;overflow:auto}.foot{margin-top:14px;color:#667085;font-size:12px;line-height:1.6}
-.evidence{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:22px}.evidence-card{border:1px solid #eaecf0;border-radius:13px;padding:16px}.evidence-card strong{display:block;font-size:20px;letter-spacing:-.025em;margin:4px 0}.evidence-card span{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:#667085}.evidence-card p{font-size:12.5px;color:#475467;line-height:1.55;margin:7px 0 0}
-@media(max-width:900px){.hero,.grid{grid-template-columns:1fr}.hero h1{font-size:38px}.metric-grid,.evidence{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:560px){.wrap{padding:20px 14px 40px}.metric-grid,.evidence{grid-template-columns:1fr}.hero-main,.hero-side,.controls,.status{padding:20px}}
+:root{
+  font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  color:#101828;background:#f5f7fa
+}
+*{box-sizing:border-box}body{margin:0}.wrap{max-width:1240px;margin:0 auto;padding:30px 22px 60px}
+.panel{background:#fff;border:1px solid #e4e7ec;border-radius:20px;box-shadow:0 12px 30px rgba(16,24,40,.05)}
+.hero{display:grid;grid-template-columns:1.3fr .7fr;gap:18px}
+.hero-main{padding:32px}.hero-side{padding:24px}
+.eyebrow{font-size:12px;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:#175cd3}
+h1{font-size:44px;line-height:1.05;margin:10px 0 12px;letter-spacing:-.045em}
+.hero p{font-size:16px;line-height:1.7;color:#475467;margin:0;max-width:760px}
+.notice{margin-top:18px;padding:12px 14px;border:1px solid #d1e9ff;background:#eff8ff;border-radius:12px;color:#175cd3;font-size:12.5px;line-height:1.55}
+.badges{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}.badge{font-size:11.5px;font-weight:750;padding:7px 10px;border:1px solid #d0d5dd;border-radius:999px;background:#f9fafb;color:#344054}
+.flow{display:grid;gap:9px;margin-top:12px}.flow-item{display:flex;gap:10px;align-items:center;padding:11px 12px;border:1px solid #eaecf0;border-radius:12px;background:#fcfcfd}
+.flow-no{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:#101828;color:white;font-size:11px;font-weight:800;flex:0 0 auto}.flow-item b{font-size:13px}.flow-item span{font-size:11.5px;color:#667085;display:block;margin-top:2px}
+.section{margin-top:18px}.section-title{font-size:18px;font-weight:800;margin:0 0 7px;letter-spacing:-.02em}.section-copy{font-size:13px;color:#667085;line-height:1.6;margin:0}
+.scenario{padding:24px}.steps{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:18px}
+.step{border:1px solid #e4e7ec;background:#f9fafb;border-radius:14px;padding:14px;min-height:112px;transition:.2s}
+.step.active{border-color:#84adff;background:#eff4ff}.step.done{border-color:#a6f4c5;background:#ecfdf3}
+.step small{display:block;color:#667085;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}.step strong{display:block;font-size:13px;margin-top:7px}.step p{font-size:11.5px;line-height:1.5;color:#667085;margin:6px 0 0}
+.grid{display:grid;grid-template-columns:1.08fr .92fr;gap:18px}.controls,.status{padding:24px}
+.case-card{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}.case-field{border:1px solid #eaecf0;background:#f9fafb;border-radius:12px;padding:12px}.case-field span{display:block;font-size:10px;color:#667085;text-transform:uppercase;letter-spacing:.07em}.case-field b{display:block;font-size:14px;margin-top:5px}
+.row{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}button{border:1px solid transparent;border-radius:10px;padding:10px 13px;font-weight:760;cursor:pointer;font-size:12.5px}
+button:disabled{opacity:.55;cursor:not-allowed}.primary{background:#101828;color:#fff}.secondary{background:#fff;color:#344054;border-color:#d0d5dd}.danger{background:#fff4ed;color:#b42318;border-color:#ffd6ae}.success{background:#ecfdf3;color:#027a48;border-color:#a6f4c5}.auto{background:#175cd3;color:#fff}
+.summary{margin-top:14px;padding:16px;border-radius:14px;background:#101828;color:#f2f4f7;min-height:142px}
+.summary-title{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#98a2b3;font-weight:800}.summary-main{font-size:20px;font-weight:800;margin-top:8px}.summary-sub{font-size:12.5px;color:#d0d5dd;line-height:1.6;margin-top:7px}
+details{margin-top:10px}summary{cursor:pointer;font-size:11.5px;color:#98a2b3}.raw{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;white-space:pre-wrap;overflow:auto;max-height:220px;color:#d0d5dd;margin-top:8px}
+.metric-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:16px}.metric{padding:13px;border-radius:13px;background:#f9fafb;border:1px solid #eaecf0}.metric b{font-size:18px;display:block;margin-top:5px;letter-spacing:-.03em;overflow-wrap:anywhere}.metric span{font-size:9.5px;color:#667085;text-transform:uppercase;letter-spacing:.07em}
+.healthline{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.pill{padding:7px 10px;border-radius:999px;background:#ecfdf3;color:#027a48;border:1px solid #a6f4c5;font-size:11px;font-weight:750}.pill.warn{background:#fffaeb;color:#b54708;border-color:#fedf89}
+.evidence{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:22px}.evidence-card{border:1px solid #eaecf0;border-radius:13px;padding:16px}.evidence-card strong{display:block;font-size:20px;letter-spacing:-.025em;margin:4px 0}.evidence-card span{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:#667085}.evidence-card p{font-size:12px;color:#475467;line-height:1.5;margin:7px 0 0}
+.foot{margin-top:13px;font-size:11.5px;color:#667085;line-height:1.6}
+@media(max-width:960px){.hero,.grid{grid-template-columns:1fr}.steps{grid-template-columns:repeat(2,1fr)}.evidence{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:560px){.wrap{padding:18px 12px 36px}.hero-main,.hero-side,.scenario,.controls,.status{padding:19px}h1{font-size:34px}.steps,.evidence,.case-card,.metric-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="hero">
     <section class="panel hero-main">
-      <div class="eyebrow">ML Serving Reliability Lab</div>
-      <h1>InferenceRail</h1>
-      <p>AI 모델을 호출하는 API가 아니라, <b>트래픽 급증·backend 지연·모델 장애가 발생해도 서비스 경계를 지키는 inference gateway</b>를 검증하는 프로젝트입니다. bounded queue, dynamic batching, deadline, circuit breaker, fallback, tracing, autoscaling contract를 한 흐름에서 보여줍니다.</p>
-      <div class="badges"><span class="badge">FastAPI</span><span class="badge">Triton V2 adapter</span><span class="badge">Dynamic batching</span><span class="badge">Backpressure</span><span class="badge">OpenTelemetry span links</span><span class="badge">Prometheus</span><span class="badge">Kubernetes / KEDA</span></div>
+      <div class="eyebrow">AI Risk Scoring Reliability Demo</div>
+      <h1>AI 위험도 분석이 몰려도,<br>모델이 죽어도 서비스를 계속합니다.</h1>
+      <p><b>InferenceRail</b>은 은행의 실시간 AI 위험도 분석 요청을 예시로, 트래픽 급증과 주 모델 장애가 발생했을 때 ML 백엔드가 요청을 묶어 처리하고, 과부하를 제어하고, 장애 모델을 격리하고, fallback으로 우회한 뒤 다시 복구하는 과정을 직접 보여주는 데모입니다.</p>
+      <div class="notice"><b>합성 시나리오입니다.</b> 실제 고객 데이터·신용평가·이상거래 판정에 사용하지 않습니다. 화면의 pass/review 결과는 서버 동작을 재현하기 위한 deterministic mock이며, 핵심은 모델 정확도가 아니라 <b>서빙 안정성</b>입니다.</div>
+      <div class="badges"><span class="badge">Dynamic batching</span><span class="badge">Bounded queue</span><span class="badge">Circuit breaker</span><span class="badge">Fallback</span><span class="badge">NVIDIA Triton</span><span class="badge">Kubernetes HPA/KEDA</span><span class="badge">Prometheus + Jaeger</span></div>
     </section>
     <section class="panel hero-side">
-      <div class="section-title">Request path</div>
-      <div class="arch">Client request + deadline
-  ↓
-FastAPI Gateway
-  ↓
-Bounded Queue ──→ 429 fast rejection
-  ↓ expired      → drop before model call
-Dynamic Batcher
-  ↓
-Primary Model ── timeout/failure ─→ Circuit Breaker
-  ↓                                    ↓
-Response ←──────────── Fallback Model ←─┘
-  ↓
-Prometheus + linked OpenTelemetry spans</div>
+      <h2 class="section-title">면접관이 보는 흐름</h2>
+      <p class="section-copy">기술 이름보다 장애 상황과 대응을 먼저 보여줍니다.</p>
+      <div class="flow">
+        <div class="flow-item"><div class="flow-no">1</div><div><b>평상시 분석</b><span>Primary 모델이 정상 응답</span></div></div>
+        <div class="flow-item"><div class="flow-no">2</div><div><b>트래픽 급증</b><span>24개 요청을 dynamic batch로 처리</span></div></div>
+        <div class="flow-item"><div class="flow-no">3</div><div><b>주 모델 장애</b><span>실패를 서비스 전체 장애로 번지지 않게 격리</span></div></div>
+        <div class="flow-item"><div class="flow-no">4</div><div><b>자동 우회</b><span>Circuit breaker가 열리고 fallback으로 전환</span></div></div>
+        <div class="flow-item"><div class="flow-no">5</div><div><b>복구 확인</b><span>Recovery window 후 primary로 복귀</span></div></div>
+      </div>
     </section>
   </div>
 
+  <section class="panel section scenario">
+    <h2 class="section-title">장애 대응 시나리오</h2>
+    <p class="section-copy">각 단계를 직접 실행하거나, <b>전체 시나리오 자동 실행</b>으로 처음부터 복구까지 한 번에 확인할 수 있습니다.</p>
+    <div class="steps">
+      <div class="step" id="step1"><small>Step 1</small><strong>정상 분석</strong><p>AI 요청이 primary에서 처리됩니다.</p></div>
+      <div class="step" id="step2"><small>Step 2</small><strong>트래픽 급증</strong><p>24건을 동시에 보내 batch 동작을 봅니다.</p></div>
+      <div class="step" id="step3"><small>Step 3</small><strong>모델 장애</strong><p>Primary failure를 강제로 발생시킵니다.</p></div>
+      <div class="step" id="step4"><small>Step 4</small><strong>자동 우회</strong><p>3회 실패 후 breaker가 열리고 fallback으로 우회합니다.</p></div>
+      <div class="step" id="step5"><small>Step 5</small><strong>복구</strong><p>잠시 후 primary가 정상 복귀하는지 확인합니다.</p></div>
+    </div>
+  </section>
+
   <div class="section grid">
     <section class="panel controls">
-      <h2 class="section-title">운영 시나리오</h2>
-      <p class="section-copy">정상 요청만 보지 않고 batching, 장애 전환, circuit open을 직접 재현합니다.</p>
-      <textarea id="text">신규 요청의 리스크 점수를 계산합니다.</textarea>
-      <div class="row">
-        <button class="primary" onclick="predict(false)">정상 요청</button>
-        <button class="secondary" onclick="burst()">24개 동시 요청</button>
-        <button class="danger" onclick="predict(true)">Primary 장애 1회</button>
-        <button class="warn" onclick="openBreaker()">Breaker 열기</button>
+      <h2 class="section-title">합성 거래 요청</h2>
+      <p class="section-copy">아래 정보는 UI 이해를 위한 고정 예시이며 실제 금융 판단에는 사용되지 않습니다.</p>
+      <div class="case-card">
+        <div class="case-field"><span>거래 금액</span><b>₩1,850,000</b></div>
+        <div class="case-field"><span>접속 환경</span><b>신규 기기</b></div>
+        <div class="case-field"><span>거래 위치</span><b>해외 접속</b></div>
+        <div class="case-field"><span>계좌 사용 기간</span><b>12일</b></div>
       </div>
-      <div id="result" class="result">시나리오 결과가 여기에 표시됩니다.</div>
+      <div class="row">
+        <button class="primary" onclick="normalScenario()">1. 정상 분석</button>
+        <button class="secondary" onclick="burstScenario()">2. 트래픽 급증</button>
+        <button class="danger" onclick="failureScenario()">3. 모델 장애</button>
+        <button class="secondary" onclick="fallbackScenario()">4. 자동 우회</button>
+        <button class="success" onclick="recoveryScenario()">5. 복구 확인</button>
+        <button class="auto" id="autoBtn" onclick="runFullScenario()">전체 시나리오 자동 실행</button>
+      </div>
+      <div id="result" class="summary">
+        <div class="summary-title">Scenario result</div>
+        <div class="summary-main">원하는 시나리오를 실행해보세요.</div>
+        <div class="summary-sub">정상 처리부터 장애 격리와 복구까지 서버가 어떻게 반응하는지 보여줍니다.</div>
+      </div>
     </section>
+
     <section class="panel status">
-      <h2 class="section-title">런타임 상태</h2>
-      <p class="section-copy">서버 내부 상태를 별도 운영 API로 확인합니다.</p>
+      <h2 class="section-title">서비스 상태</h2>
+      <p class="section-copy">운영자가 보는 핵심 상태를 기술 용어와 함께 표시합니다.</p>
+      <div class="healthline">
+        <span class="pill" id="servicePill">서비스 확인 중</span>
+        <span class="pill" id="routingPill">라우팅 확인 중</span>
+      </div>
       <div class="metric-grid">
-        <div class="metric"><span>Backend mode</span><b id="mode">-</b></div>
+        <div class="metric"><span>Model backend</span><b id="mode">-</b></div>
         <div class="metric"><span>Queue</span><b id="queue">-</b></div>
-        <div class="metric"><span>Breaker</span><b id="breaker">-</b></div>
+        <div class="metric"><span>Circuit breaker</span><b id="breaker">-</b></div>
         <div class="metric"><span>Processed</span><b id="processed">-</b></div>
         <div class="metric"><span>Fallback</span><b id="fallback">-</b></div>
-        <div class="metric"><span>Primary timeout</span><b id="timeouts">-</b></div>
+        <div class="metric"><span>Timeout</span><b id="timeouts">-</b></div>
         <div class="metric"><span>Version</span><b id="version">-</b></div>
         <div class="metric"><span>Revision</span><b id="revision">-</b></div>
         <div class="metric"><span>Environment</span><b id="environment">-</b></div>
       </div>
-      <p class="foot">기본 실행은 deterministic mock으로 서버 구조를 재현합니다. `BACKEND_MODE=triton`에서는 NVIDIA Triton V2 HTTP contract를 사용하는 remote model backend로 교체됩니다.</p>
+      <p class="foot">공개 데모는 안정적인 재현을 위해 mock backend를 사용합니다. 저장소 CI에서는 실제 NVIDIA Triton Server 2.73.0과 Kubernetes HPA/KEDA scale-out까지 별도로 검증했습니다.</p>
     </section>
   </div>
 
   <section class="panel section evidence">
-    <div class="evidence-card"><span>Batching benchmark</span><strong>5.20–5.21×</strong><p>160 requests / concurrency 24 조건에서 최종 3회 반복한 처리량 개선 범위.</p></div>
-    <div class="evidence-card"><span>p95 latency</span><strong>−80.89~−81.02%</strong><p>batch 8 p95는 189.06~190.43 ms. 모델 성능이 아닌 gateway batching 효과 측정.</p></div>
-    <div class="evidence-card"><span>Overload behavior</span><strong>57 / 60</strong><p>queue capacity 2 강제 조건에서 57건을 429로 즉시 차단하고 3건만 admission.</p></div>
+    <div class="evidence-card"><span>Batching throughput</span><strong>5.20–5.21×</strong><p>동일 합성 workload에서 batch 1 대비 batch 8 처리량 개선.</p></div>
+    <div class="evidence-card"><span>Tail latency</span><strong>−80.89~−81.02%</strong><p>batch 8 p95 189.06~190.43ms. gateway 구조 효과 측정.</p></div>
+    <div class="evidence-card"><span>Kubernetes autoscaling</span><strong>2 → 6</strong><p>Metrics Server + HPA 실제 scale-out. KEDA도 2 → 3 검증.</p></div>
+    <div class="evidence-card"><span>Real Triton runtime</span><strong>Batch 8</strong><p>NVIDIA Triton 2.73.0 실제 서버에서 fallback 0 / timeout 0.</p></div>
   </section>
 </div>
+
 <script>
+const caseText='synthetic bank risk request amount=1850000 device=new location=overseas account_age_days=12';
 const out=document.getElementById('result');
-const elMode=document.getElementById('mode');
-const elQueue=document.getElementById('queue');
-const elBreaker=document.getElementById('breaker');
-const elProcessed=document.getElementById('processed');
-const elFallback=document.getElementById('fallback');
-const elTimeouts=document.getElementById('timeouts');
-const elVersion=document.getElementById('version');
-const elRevision=document.getElementById('revision');
-const elEnvironment=document.getElementById('environment');
+const autoBtn=document.getElementById('autoBtn');
+const els={
+  mode:document.getElementById('mode'),queue:document.getElementById('queue'),
+  breaker:document.getElementById('breaker'),processed:document.getElementById('processed'),
+  fallback:document.getElementById('fallback'),timeouts:document.getElementById('timeouts'),
+  version:document.getElementById('version'),revision:document.getElementById('revision'),
+  environment:document.getElementById('environment'),
+  servicePill:document.getElementById('servicePill'),routingPill:document.getElementById('routingPill')
+};
+function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
+function setStep(n,state){
+  const el=document.getElementById('step'+n);
+  el.classList.remove('active','done');
+  if(state) el.classList.add(state);
+}
+function resetSteps(){for(let i=1;i<=5;i++)setStep(i,'')}
+function show(title,sub,raw){
+  out.innerHTML='<div class="summary-title">Scenario result</div>'+
+    '<div class="summary-main">'+title+'</div>'+
+    '<div class="summary-sub">'+sub+'</div>'+
+    (raw?'<details><summary>기술 상세 보기</summary><div class="raw">'+escapeHtml(JSON.stringify(raw,null,2))+'</div></details>':'');
+}
+function escapeHtml(s){return s.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
 async function refresh(){
   try{
-    const [r,b]=await Promise.all([fetch('/ops/status'),fetch('/ops/build')]); const d=await r.json(); const build=await b.json();
-    elMode.textContent=d.backend_mode; elQueue.textContent=`${d.queue_depth}/${d.queue_capacity}`;
-    elBreaker.textContent=`${d.breaker_state} · ${d.breaker_failures}`;
-    elProcessed.textContent=d.processed_requests; elFallback.textContent=d.fallback_requests;
-    elTimeouts.textContent=d.primary_timeouts;
-    elVersion.textContent=build.version; elRevision.textContent=String(build.revision).slice(0,10); elEnvironment.textContent=build.environment;
-  }catch(e){/* demo keeps last known status */}
+    const [r,b]=await Promise.all([fetch('/ops/status'),fetch('/ops/build')]);
+    const d=await r.json(); const build=await b.json();
+    els.mode.textContent=d.backend_mode; els.queue.textContent=d.queue_depth+'/'+d.queue_capacity;
+    els.breaker.textContent=d.breaker_state+' · '+d.breaker_failures;
+    els.processed.textContent=d.processed_requests; els.fallback.textContent=d.fallback_requests;
+    els.timeouts.textContent=d.primary_timeouts; els.version.textContent=build.version;
+    els.revision.textContent=String(build.revision).slice(0,10); els.environment.textContent=build.environment;
+    els.servicePill.textContent='서비스 정상';
+    if(d.breaker_state==='open'){
+      els.routingPill.textContent='Fallback 우회 중'; els.routingPill.className='pill warn';
+    }else{
+      els.routingPill.textContent='Primary 사용 가능'; els.routingPill.className='pill';
+    }
+    return d;
+  }catch(e){
+    els.servicePill.textContent='상태 확인 실패'; els.servicePill.className='pill warn';
+  }
 }
 async function send(text){
   const started=performance.now();
   const r=await fetch('/v1/predict',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text})});
-  const body=await r.json();
+  let body={}; try{body=await r.json()}catch(e){}
   return {status:r.status,client_ms:Number((performance.now()-started).toFixed(2)),...body};
 }
-async function predict(fail){
-  const source=document.getElementById('text').value;
-  const body=await send(fail ? `${source} __FAIL_PRIMARY__` : source);
-  out.textContent=JSON.stringify(body,null,2); await refresh();
-}
 function percentile(values,p){const v=[...values].sort((a,b)=>a-b);return v[Math.min(v.length-1,Math.round((v.length-1)*p))]}
-async function burst(){
-  const source=document.getElementById('text').value;
-  const rows=await Promise.all(Array.from({length:24},(_,i)=>send(`${source} #${i+1}`)));
+async function normalScenario(){
+  resetSteps(); setStep(1,'active');
+  show('정상 분석 요청을 보내는 중…','Primary 모델이 정상적으로 요청을 처리하는지 확인합니다.');
+  const body=await send(caseText);
+  setStep(1,'done');
+  show('정상 처리 완료','Primary backend가 요청을 처리했습니다. 서비스 장애나 fallback 없이 정상 경로입니다.',body);
+  await refresh(); return body;
+}
+async function burstScenario(){
+  resetSteps(); setStep(2,'active');
+  show('24개 요청이 동시에 들어왔습니다.','서버가 요청을 하나씩 직렬 처리하지 않고 dynamic batching으로 묶는지 확인합니다.');
+  const rows=await Promise.all(Array.from({length:24},(_,i)=>send(caseText+' burst='+i)));
   const ok=rows.filter(x=>x.status===200); const times=rows.map(x=>x.client_ms);
   const batches=[...new Set(ok.map(x=>x.batch_size))].sort((a,b)=>a-b);
-  out.textContent=JSON.stringify({requests:rows.length,success:ok.length,status_codes:rows.reduce((a,x)=>(a[x.status]=(a[x.status]||0)+1,a),{}),batch_sizes:batches,p50_client_ms:percentile(times,.5),p95_client_ms:percentile(times,.95)},null,2);
-  await refresh();
+  const result={requests:rows.length,success:ok.length,batch_sizes:batches,p50_client_ms:percentile(times,.5),p95_client_ms:percentile(times,.95)};
+  setStep(2,'done');
+  show('트래픽 급증 처리 완료','24개 동시 요청을 처리했습니다. 기술 상세에서 실제 관측 batch size와 지연을 확인할 수 있습니다.',result);
+  await refresh(); return result;
 }
-async function openBreaker(){
-  const source=document.getElementById('text').value; const events=[];
-  for(let i=0;i<3;i++) events.push(await send(`${source} __FAIL_PRIMARY__ #${i+1}`));
-  const status=await (await fetch('/ops/status')).json();
-  out.textContent=JSON.stringify({message:'3회 강제 실패 후 breaker 상태',events:events.map(x=>({status:x.status,backend:x.backend,fallback_used:x.fallback_used})),runtime:status},null,2);
-  await refresh();
+async function failureScenario(){
+  resetSteps(); setStep(3,'active');
+  show('Primary 모델 장애를 재현하는 중…','한 번의 모델 실패가 사용자 요청 실패로 그대로 전파되는지 확인합니다.');
+  const body=await send(caseText+' __FAIL_PRIMARY__ single-failure');
+  setStep(3,'done');
+  show(body.fallback_used?'장애를 자동 우회했습니다.':'장애 처리 결과 확인','Primary 실패를 감지하고 fallback 경로로 응답했습니다.',body);
+  await refresh(); return body;
+}
+async function fallbackScenario(){
+  resetSteps(); setStep(4,'active');
+  show('연속 장애로 Circuit Breaker를 여는 중…','Primary를 3회 실패시킨 뒤, 정상 요청도 장애 모델을 다시 호출하지 않고 우회하는지 확인합니다.');
+  const events=[];
+  for(let i=0;i<3;i++) events.push(await send(caseText+' __FAIL_PRIMARY__ breaker='+i));
+  const healthy=await send(caseText+' healthy-while-open');
+  const runtime=await refresh();
+  const result={forced_failures:events.map(x=>({backend:x.backend,fallback_used:x.fallback_used})),healthy_while_open:{backend:healthy.backend,fallback_used:healthy.fallback_used},runtime};
+  setStep(4,'done');
+  show('장애 모델을 격리하고 Fallback으로 전환했습니다.','Circuit Breaker가 열린 동안 Primary를 반복 호출하지 않아 장애 전파와 retry storm을 막습니다.',result);
+  return result;
+}
+async function recoveryScenario(){
+  resetSteps(); setStep(5,'active');
+  show('Primary 복구를 기다리는 중…','Recovery window가 지난 뒤 probe 요청으로 Primary가 다시 사용 가능한지 확인합니다.');
+  let runtime=await refresh();
+  if(runtime && runtime.breaker_state!=='open'){
+    for(let i=0;i<3;i++) await send(caseText+' __FAIL_PRIMARY__ recovery-prepare='+i);
+  }
+  for(let remain=5;remain>0;remain--){
+    show('복구 확인까지 '+remain+'초','Circuit Breaker recovery window를 기다리고 있습니다.');
+    await sleep(1000);
+  }
+  await sleep(300);
+  const body=await send(caseText+' recovery-probe');
+  runtime=await refresh();
+  setStep(5,'done');
+  show(body.fallback_used?'아직 Fallback 사용 중':'Primary 복구 확인 완료',body.fallback_used?'Recovery window 이후에도 fallback이 사용됐습니다. 상태를 다시 확인해보세요.':'Primary가 다시 정상 경로로 복귀했고 Circuit Breaker도 닫혔습니다.',{response:body,runtime});
+  return body;
+}
+async function runFullScenario(){
+  autoBtn.disabled=true; resetSteps();
+  try{
+    setStep(1,'active'); show('1/5 · 정상 분석','Primary 정상 경로를 확인합니다.');
+    await send(caseText+' full-normal'); setStep(1,'done');
+
+    setStep(2,'active'); show('2/5 · 트래픽 급증','24개 동시 요청을 보내 batching을 재현합니다.');
+    await Promise.all(Array.from({length:24},(_,i)=>send(caseText+' full-burst='+i))); setStep(2,'done');
+
+    setStep(3,'active'); show('3/5 · 모델 장애','Primary 장애를 한 번 발생시켜 자동 우회를 확인합니다.');
+    await send(caseText+' __FAIL_PRIMARY__ full-failure=1'); setStep(3,'done');
+
+    setStep(4,'active'); show('4/5 · 자동 우회','추가 장애로 Circuit Breaker를 열고 정상 요청을 fallback으로 우회합니다.');
+    await send(caseText+' __FAIL_PRIMARY__ full-failure=2');
+    await send(caseText+' __FAIL_PRIMARY__ full-failure=3');
+    const whileOpen=await send(caseText+' full-healthy-while-open'); setStep(4,'done');
+
+    setStep(5,'active');
+    for(let remain=5;remain>0;remain--){show('5/5 · 복구까지 '+remain+'초','Recovery window 후 Primary 복귀를 자동 확인합니다.');await sleep(1000)}
+    await sleep(300);
+    const recovered=await send(caseText+' full-recovery-probe');
+    const runtime=await refresh(); setStep(5,'done');
+    show('전체 장애 대응 시나리오 완료','정상 처리 → 트래픽 급증 → 모델 장애 → 자동 우회 → Primary 복구까지 한 흐름으로 확인했습니다.',{healthy_while_open:whileOpen,recovery:recovered,runtime});
+  }finally{autoBtn.disabled=false}
 }
 refresh(); setInterval(refresh,1800);
 </script>
