@@ -32,6 +32,39 @@ v0.6의 전면 기능은 **SLO-to-Config Compiler**입니다.
 
 Request Flight Recorder, Shadow model comparison, Kubernetes/Triton/Jaeger 증거는 첫 화면에서 제거하고 개발자용 Deep Dive 영역으로 이동했습니다.
 
+### 공개 v0.6 실측 예시
+
+기본 조건 `flash_crowd / p95 ≤ 250ms / success ≥ 99.5%`에서 공개 Render 데모를 실제 실행했습니다.
+
+- Decision Receipt: `11c1628c98148a1a`
+- selected policy: **Throughput Guard**
+- backend calls / 100 successful requests: **12.5**
+- max verified concurrency: **32**
+- first unsafe concurrency: **40**
+- scale before concurrency: **32**
+
+| Concurrency | 상태 | p95 | Success | Admitted RPS | Shed |
+|---:|---|---:|---:|---:|---:|
+| 4 | SAFE | 60.90ms | 100% | 65.69 | 0 |
+| 8 | SAFE | 59.82ms | 100% | 133.57 | 0 |
+| 16 | SAFE | 119.62ms | 100% | 134.26 | 0 |
+| 24 | SAFE | 179.49ms | 100% | 133.95 | 0 |
+| **32** | **SAFE** | **238.31ms** | **100%** | **134.30** | **0** |
+| **40** | **BREACH** | **242.12ms** | **40%** | **131.74** | **48** |
+
+발행된 runtime config:
+
+```text
+QUEUE_CAPACITY=32
+MAX_BATCH_SIZE=8
+MAX_BATCH_WAIT_MS=12
+REQUEST_TIMEOUT_MS=500
+PRIMARY_TIMEOUT_MS=460
+BREAKER_FAILURE_THRESHOLD=3
+```
+
+원본 요약은 `docs/evidence/slo-compiler-public-v0.6.json`에 보존합니다.
+
 ## 한눈에 보기
 
 ```text

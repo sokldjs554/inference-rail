@@ -1,0 +1,90 @@
+{
+  "verified_at": "2026-10-06T16:41:00Z",
+  "public_url": "https://inference-rail-demo.onrender.com",
+  "runtime_revision": "08a1e40719358acf0ae44d02b251337bea613ccc",
+  "version": "0.6.0",
+  "input": {
+    "profile": "flash_crowd",
+    "target_p95_ms": 250,
+    "min_success_rate": 0.995
+  },
+  "decision_receipt": {
+    "workload_fingerprint": "11c1628c98148a1a",
+    "selected_policy": "throughput_guard",
+    "status": "slo_met",
+    "backend_calls_per_100_success": 12.5,
+    "selected_config": {
+      "queue_capacity": 32,
+      "batch_size": 8,
+      "batch_wait_ms": 12,
+      "timeout_ms": 500,
+      "primary_timeout_ms": 460,
+      "breaker_threshold": 3
+    }
+  },
+  "safe_operating_envelope": {
+    "method": "measured_concurrency_sweep",
+    "max_verified_concurrency": 32,
+    "first_unsafe_concurrency": 40,
+    "scale_before_concurrency": 32,
+    "points": [
+      {
+        "concurrency": 4,
+        "slo_pass": true,
+        "p95_ms": 60.9,
+        "success_rate": 1,
+        "admitted_rps": 65.69,
+        "shed_requests": 0
+      },
+      {
+        "concurrency": 8,
+        "slo_pass": true,
+        "p95_ms": 59.82,
+        "success_rate": 1,
+        "admitted_rps": 133.57,
+        "shed_requests": 0
+      },
+      {
+        "concurrency": 16,
+        "slo_pass": true,
+        "p95_ms": 119.62,
+        "success_rate": 1,
+        "admitted_rps": 134.26,
+        "shed_requests": 0
+      },
+      {
+        "concurrency": 24,
+        "slo_pass": true,
+        "p95_ms": 179.49,
+        "success_rate": 1,
+        "admitted_rps": 133.95,
+        "shed_requests": 0
+      },
+      {
+        "concurrency": 32,
+        "slo_pass": true,
+        "p95_ms": 238.31,
+        "success_rate": 1,
+        "admitted_rps": 134.3,
+        "shed_requests": 0
+      },
+      {
+        "concurrency": 40,
+        "slo_pass": false,
+        "p95_ms": 242.12,
+        "success_rate": 0.4,
+        "admitted_rps": 131.74,
+        "shed_requests": 48
+      }
+    ]
+  },
+  "rejected_policies": {
+    "latency_guard": [
+      "success 0.167 < 0.995"
+    ],
+    "availability_guard": [
+      "success 0.333 < 0.995"
+    ]
+  },
+  "scope_note": "synthetic deterministic workload; gateway/server behavior, not GPU model performance"
+}
