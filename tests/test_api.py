@@ -10,6 +10,9 @@ def test_health_and_prediction():
         demo = client.get("/")
         assert demo.status_code == 200
         assert "InferenceRail" in demo.text
+        assert "AI 위험도 분석이 몰려도" in demo.text
+        assert "전체 시나리오 자동 실행" in demo.text
+        assert "실제 고객 데이터·신용평가·이상거래 판정에 사용하지 않습니다" in demo.text
         build_body = client.get("/ops/build").json()
         assert build_body["app"] == "InferenceRail"
         assert build_body["version"] == "0.3.0"

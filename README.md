@@ -16,6 +16,20 @@
 
 공개 데모는 Render Singapore에서 `BACKEND_MODE=mock`으로 운영합니다. 배포 후 외부 브라우저에서 `/`, `/health/ready`, `/ops/build`, `/ops/status`를 확인했고, 데모의 `정상 요청` 버튼을 실제 클릭해 **HTTP 200 / primary-model / fallback=false** 응답까지 검증했습니다.
 
+## 공개 데모에서 보는 것
+
+공개 데모는 **은행의 합성 AI 위험도 분석 요청**을 예시로 사용합니다. 실제 금융 판단이나 고객 데이터는 사용하지 않습니다.
+
+면접관은 다음 5단계를 직접 실행할 수 있습니다.
+
+1. **정상 분석** — Primary 모델 정상 처리
+2. **트래픽 급증** — 24개 동시 요청과 dynamic batching
+3. **모델 장애** — Primary failure 1회와 자동 fallback
+4. **자동 우회** — 3회 실패 후 Circuit Breaker open, 장애 모델 격리
+5. **복구 확인** — recovery window 이후 Primary 재진입
+
+`전체 시나리오 자동 실행` 버튼은 위 흐름을 한 번에 재현합니다. 오른쪽 서비스 상태 영역에서는 queue, breaker, processed/fallback/timeout, backend mode, 배포 revision을 함께 확인할 수 있습니다.
+
 ## 한눈에 보기
 
 ```text
