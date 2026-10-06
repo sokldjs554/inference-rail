@@ -47,7 +47,9 @@ def _build_primary_backend() -> InferenceBackend:
             label_output=settings.triton_label_output,
             score_output=settings.triton_score_output,
         )
-    raise RuntimeError(f"unsupported BACKEND_MODE={settings.backend_mode!r}; expected mock or triton")
+    raise RuntimeError(
+        f"unsupported BACKEND_MODE={settings.backend_mode!r}; expected mock or triton"
+    )
 
 
 def _build_runtime() -> tuple[CircuitBreaker, ResilientBackend, DynamicBatcher]:
@@ -125,7 +127,10 @@ async def predict(payload: PredictRequest, request: Request) -> PredictResponse:
     except TimeoutError as exc:
         DEADLINE_EXPIRED_TOTAL.inc()
         REQUESTS.labels(status="timeout", backend="none", fallback="false").inc()
-        raise HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail="inference timeout") from exc
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="inference timeout",
+        ) from exc
     except BackendUnavailableError as exc:
         REQUESTS.labels(status="unavailable", backend="none", fallback="false").inc()
         raise HTTPException(

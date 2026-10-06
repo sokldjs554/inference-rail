@@ -17,7 +17,12 @@ async def test_triton_http_backend_batches_texts_and_parses_outputs():
             json={
                 "model_name": "text_classifier",
                 "outputs": [
-                    {"name": "LABEL", "datatype": "BYTES", "shape": [2], "data": ["pass", "review"]},
+                    {
+                        "name": "LABEL",
+                        "datatype": "BYTES",
+                        "shape": [2],
+                        "data": ["pass", "review"],
+                    },
                     {"name": "SCORE", "datatype": "FP32", "shape": [2], "data": [0.2, 0.91]},
                 ],
             },

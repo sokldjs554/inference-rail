@@ -7,7 +7,6 @@ import os
 import signal
 import subprocess
 import sys
-import time
 from pathlib import Path
 
 import httpx
@@ -19,7 +18,10 @@ async def wait_ready(port: int) -> None:
     async with httpx.AsyncClient() as client:
         for _ in range(80):
             try:
-                if (await client.get(f"http://127.0.0.1:{port}/health/ready", timeout=0.4)).status_code == 200:
+                response = await client.get(
+                    f"http://127.0.0.1:{port}/health/ready", timeout=0.4
+                )
+                if response.status_code == 200:
                     return
             except Exception:
                 pass
@@ -40,7 +42,18 @@ def run_case(batch_size: int, port: int, count: int, concurrency: int) -> dict:
         "PYTHONPATH": str(ROOT),
     })
     proc = subprocess.Popen(
-        [sys.executable, "-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", str(port), "--log-level", "warning"],
+        [
+            sys.executable,
+            "-m",
+            "uvicorn",
+            "app.main:app",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            str(port),
+            "--log-level",
+            "warning",
+        ],
         cwd=ROOT,
         env=env,
     )

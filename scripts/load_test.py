@@ -20,7 +20,9 @@ async def run(base_url: str, requests: int, concurrency: int) -> dict:
         async def one(i: int) -> None:
             async with sem:
                 start = time.perf_counter()
-                response = await client.post(f"{base_url}/v1/predict", json={"text": f"request-{i}"})
+                response = await client.post(
+                    f"{base_url}/v1/predict", json={"text": f"request-{i}"}
+                )
                 latencies.append((time.perf_counter() - start) * 1000)
                 codes[response.status_code] += 1
                 if response.status_code == 200:

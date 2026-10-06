@@ -86,7 +86,9 @@ class ResilientBackend(InferenceBackend):
         except Exception as exc:
             self.fallback_failures += len(texts)
             BACKEND_ERRORS.labels(stage="fallback", reason="error_or_timeout").inc(len(texts))
-            raise BackendUnavailableError("primary and fallback inference backends unavailable") from exc
+            raise BackendUnavailableError(
+                "primary and fallback inference backends unavailable"
+            ) from exc
 
         self.fallback_requests += len(texts)
         return [

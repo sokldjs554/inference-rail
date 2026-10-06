@@ -144,7 +144,9 @@ class DynamicBatcher:
                 ):
                     self.expired_requests += 1
                     if not item.future.done():
-                        item.future.set_exception(TimeoutError("inference request deadline exceeded"))
+                        item.future.set_exception(
+                            TimeoutError("inference request deadline exceeded")
+                        )
                     self.queue.task_done()
                 else:
                     active.append(item)
