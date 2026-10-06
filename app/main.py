@@ -20,6 +20,7 @@ from app.backends.triton import TritonHTTPBackend
 from app.config import settings
 from app.core.batcher import DynamicBatcher, QueueFullError
 from app.core.circuit_breaker import CircuitBreaker
+from app.core.slo_governor import choose_serving_policy
 from app.flight_recorder import FlightRecorder
 from app.metrics import (
     BATCH_SIZE,
@@ -36,6 +37,7 @@ from app.models import (
     BuildInfo,
     PolicyLabRequest,
     PredictRequest,
+    SLODecisionRequest,
     PredictResponse,
     RuntimeStatus,
 )
@@ -233,27 +235,47 @@ async def shadow_compare(payload: PredictRequest, request: Request) -> dict[str,
     }
 
 
-@app.post("/v1/policy-lab")
-async def policy_lab(payload: PolicyLabRequest) -> dict[str, Any]:
-    traffic = {
+def _traffic_profile(profile: str) -> dict[str, int]:
+    return {
         "steady": {"requests": 24, "concurrency": 8, "failure_every": 0},
         "flash_crowd": {"requests": 48, "concurrency": 32, "failure_every": 0},
         "degraded_primary": {"requests": 36, "concurrency": 18, "failure_every": 6},
-    }[payload.profile]
-    policies = {
+    }[profile]
+
+
+def _candidate_policies() -> dict[str, dict[str, int]]:
+    return {
         "latency_guard": {
             "queue_capacity": 8,
             "batch_size": 4,
             "batch_wait_ms": 4,
             "timeout_ms": 220,
+            "primary_timeout_ms": 180,
+            "breaker_threshold": 3,
         },
         "throughput_guard": {
             "queue_capacity": 32,
             "batch_size": 8,
             "batch_wait_ms": 12,
             "timeout_ms": 500,
+            "primary_timeout_ms": 460,
+            "breaker_threshold": 3,
+        },
+        "availability_guard": {
+            "queue_capacity": 16,
+            "batch_size": 4,
+            "batch_wait_ms": 5,
+            "timeout_ms": 320,
+            "primary_timeout_ms": 80,
+            "breaker_threshold": 2,
         },
     }
+
+
+@app.post("/v1/policy-lab")
+async def policy_lab(payload: PolicyLabRequest) -> dict[str, Any]:
+    traffic = _traffic_profile(payload.profile)
+    policies = _candidate_policies()
     results = {}
     for name, policy in policies.items():
         results[name] = await _run_policy_trial(
@@ -262,22 +284,49 @@ async def policy_lab(payload: PolicyLabRequest) -> dict[str, Any]:
             traffic=traffic,
         )
 
-    latency_guard = results["latency_guard"]
-    throughput_guard = results["throughput_guard"]
-    if abs(latency_guard["success_rate"] - throughput_guard["success_rate"]) > 0.05:
-        winner = max(results, key=lambda key: results[key]["success_rate"])
-        reason = "higher admission success under this traffic profile"
-    else:
-        winner = min(results, key=lambda key: results[key]["p95_ms"])
-        reason = "lower p95 with comparable success rate"
-
+    winner = max(
+        results,
+        key=lambda key: (
+            results[key]["success_rate"],
+            -results[key]["p95_ms"],
+            -results[key]["throughput_rps"],
+        ),
+    )
     return {
         "profile": payload.profile,
         "traffic": traffic,
         "policies": results,
         "winner_for_this_run": winner,
-        "reason": reason,
+        "reason": "highest success rate, then lower p95 and higher admitted throughput",
         "note": "isolated synthetic trial using the same batcher and resilience code path",
+    }
+
+
+@app.post("/v1/slo-decision")
+async def slo_decision(payload: SLODecisionRequest) -> dict[str, Any]:
+    traffic = _traffic_profile(payload.profile)
+    results = {}
+    for name, policy in _candidate_policies().items():
+        results[name] = await _run_policy_trial(
+            name=name,
+            policy=policy,
+            traffic=traffic,
+        )
+    receipt = choose_serving_policy(
+        profile=payload.profile,
+        traffic=traffic,
+        results=results,
+        target_p95_ms=payload.target_p95_ms,
+        min_success_rate=payload.min_success_rate,
+    )
+    return {
+        "profile": payload.profile,
+        "traffic": traffic,
+        "decision_receipt": receipt,
+        "note": (
+            "same synthetic workload replayed through isolated copies of the real "
+            "batcher and resilience path"
+        ),
     }
 
 
@@ -287,7 +336,10 @@ async def _run_policy_trial(
     policy: dict[str, int],
     traffic: dict[str, int],
 ) -> dict[str, Any]:
-    breaker = CircuitBreaker(failure_threshold=3, recovery_seconds=0.08)
+    breaker = CircuitBreaker(
+        failure_threshold=policy["breaker_threshold"],
+        recovery_seconds=0.08,
+    )
     primary = MockBackend(
         f"{name}-primary",
         base_latency_ms=32,
@@ -305,7 +357,7 @@ async def _run_policy_trial(
         primary,
         fallback,
         breaker,
-        primary_timeout_ms=max(80, policy["timeout_ms"] - 40),
+        primary_timeout_ms=policy["primary_timeout_ms"],
         fallback_timeout_ms=120,
     )
     batcher = DynamicBatcher(
@@ -360,18 +412,24 @@ async def _run_policy_trial(
     p95_source = success_ordered or ordered
     p95_index = min(len(p95_source) - 1, round((len(p95_source) - 1) * 0.95))
 
+    backend_calls = primary.batch_calls + fallback.batch_calls
+    successful = statuses["ok"]
+    calls_per_100 = round(backend_calls / successful * 100, 2) if successful else 9999.0
+
     return {
         "policy": policy,
         "status_counts": dict(statuses),
-        "success_rate": round(statuses["ok"] / traffic["requests"], 4),
-        "throughput_rps": round(statuses["ok"] / duration, 2),
+        "success_rate": round(successful / traffic["requests"], 4),
+        "throughput_rps": round(successful / duration, 2),
         "offered_rps": round(traffic["requests"] / duration, 2),
         "p95_ms": round(p95_source[p95_index], 2),
-        "shed_requests": traffic["requests"] - statuses["ok"],
+        "shed_requests": traffic["requests"] - successful,
         "mean_batch_size": round(statistics.mean(batch_sizes), 2)
         if batch_sizes
         else 0,
         "fallback_requests": fallback_count,
+        "backend_calls": backend_calls,
+        "backend_calls_per_100_success": calls_per_100,
         "breaker_state": breaker.state.value,
     }
 
