@@ -1,0 +1,108 @@
+name: compose-runtime
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/compose-runtime.yml"
+      - "docker-compose.yml"
+      - "Dockerfile"
+      - "app/**"
+      - "prometheus/**"
+      - "grafana/**"
+      - "otel/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: compose-runtime-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  observability-stack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start full Docker Compose stack
+        run: docker compose up -d --build
+
+      - name: Verify app, metrics, traces, and dashboards
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p docs/evidence/compose-runtime
+
+          for i in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:8000/health/ready >/dev/null 2>&1; then
+              break
+            fi
+            sleep 2
+          done
+
+          curl -fsS http://127.0.0.1:8000/health/ready             | tee docs/evidence/compose-runtime/app-health.json
+          curl -fsS http://127.0.0.1:8000/v1/predict             -H 'content-type: application/json'             -d '{"text":"compose-observability-smoke"}'             | tee docs/evidence/compose-runtime/predict.json
+
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:9090/-/ready >/dev/null 2>&1               && curl -fsS http://127.0.0.1:3000/api/health >/dev/null 2>&1               && curl -fsS http://127.0.0.1:16686/api/services >/dev/null 2>&1; then
+              break
+            fi
+            sleep 2
+          done
+
+          curl -fsS 'http://127.0.0.1:9090/api/v1/query?query=inference_requests_total'             | tee docs/evidence/compose-runtime/prometheus-query.json
+          curl -fsS http://127.0.0.1:3000/api/health             | tee docs/evidence/compose-runtime/grafana-health.json
+
+          TRACE_FOUND=0
+          for i in $(seq 1 40); do
+            curl -fsS http://127.0.0.1:16686/api/services               | tee docs/evidence/compose-runtime/jaeger-services.json
+            if grep -q '"inference-rail"' docs/evidence/compose-runtime/jaeger-services.json; then
+              TRACE_FOUND=1
+              break
+            fi
+            sleep 1
+          done
+          test "$TRACE_FOUND" -eq 1
+
+          curl -fsS 'http://127.0.0.1:16686/api/traces?service=inference-rail&limit=5'             | tee docs/evidence/compose-runtime/jaeger-traces.json
+          grep -q '"traceID"' docs/evidence/compose-runtime/jaeger-traces.json
+
+          docker compose ps             | tee docs/evidence/compose-runtime/compose-ps.txt
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path("docs/evidence/compose-runtime")
+          pred = json.loads((root / "predict.json").read_text())
+          prometheus = json.loads((root / "prometheus-query.json").read_text())
+          grafana = json.loads((root / "grafana-health.json").read_text())
+          jaeger = json.loads((root / "jaeger-services.json").read_text())
+
+          assert pred["backend"] == "primary-model"
+          assert pred["fallback_used"] is False
+          assert prometheus["status"] == "success"
+          assert prometheus["data"]["result"]
+          assert grafana["database"] == "ok"
+          assert "inference-rail" in jaeger["data"]
+          print("full compose observability stack passed")
+          PY
+
+      - name: Collect logs
+        if: always()
+        run: |
+          mkdir -p docs/evidence/compose-runtime
+          docker compose ps > docs/evidence/compose-runtime/compose-ps-final.txt || true
+          docker compose logs --no-color > docs/evidence/compose-runtime/compose.log 2>&1 || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: compose-runtime-evidence
+          path: docs/evidence/compose-runtime/
+
+      - name: Stop stack
+        if: always()
+        run: docker compose down -v --remove-orphans
