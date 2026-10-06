@@ -10,7 +10,7 @@
 
 - **공개 데모:** https://inference-rail-demo.onrender.com
 - **GitHub Actions 검증:** https://github.com/sokldjs554/inference-rail/actions/runs/37438191739
-- **현재 공개 배포 revision:** `a37d74082ba26af1f9a5e596d68d2acf5fffcdcd`
+- **외부 smoke 검증 당시 revision:** `a37d74082ba26af1f9a5e596d68d2acf5fffcdcd`
 
 공개 데모는 Render Singapore에서 `BACKEND_MODE=mock`으로 운영합니다. 배포 후 외부 브라우저에서 `/`, `/health/ready`, `/ops/build`, `/ops/status`를 확인했고, 데모의 `정상 요청` 버튼을 실제 클릭해 **HTTP 200 / primary-model / fallback=false** 응답까지 검증했습니다.
 
@@ -220,7 +220,7 @@ python scripts/slo_gate.py benchmark-results.json
 
 - 공개 URL: https://inference-rail-demo.onrender.com
 - 배포 region: Singapore
-- 배포 revision: `a37d74082ba26af1f9a5e596d68d2acf5fffcdcd`
+- 외부 smoke 검증 당시 revision: `a37d74082ba26af1f9a5e596d68d2acf5fffcdcd`
 - 외부 검증: `/health/ready`, `/ops/build`, `/ops/status`, UI `정상 요청` 모두 성공
 
 GitHub Actions에서도 같은 revision을 대상으로 **release verification → Docker image build → 실제 container start → health/build/predict smoke**까지 통과했습니다.
