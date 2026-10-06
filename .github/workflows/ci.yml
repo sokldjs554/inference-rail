@@ -1,0 +1,77 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: pip install -e '.[dev]'
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Release verification
+        env:
+          GIT_SHA: ${{ github.sha }}
+          APP_ENV: ci
+        run: PYTHONPATH=. python scripts/release_verify.py
+
+      - name: Build container
+        run: docker build --build-arg GIT_SHA=${{ github.sha }} -t inference-rail:ci .
+
+      - name: Container smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run -d --rm --name inference-rail-ci -p 18000:8000 \
+            -e APP_ENV=ci-container \
+            -e GIT_SHA=${{ github.sha }} \
+            inference-rail:ci
+          cleanup() { docker logs inference-rail-ci || true; docker stop inference-rail-ci || true; }
+          trap cleanup EXIT
+          for i in $(seq 1 40); do
+            if curl -fsS http://127.0.0.1:18000/health/ready >/dev/null; then
+              break
+            fi
+            sleep 0.5
+          done
+          curl -fsS http://127.0.0.1:18000/health/ready
+          curl -fsS http://127.0.0.1:18000/ops/build | tee /tmp/build.json
+          curl -fsS http://127.0.0.1:18000/v1/predict \
+            -H 'content-type: application/json' \
+            -d '{"text":"container-smoke"}' | tee /tmp/predict.json
+          python - <<'PY'
+          import json
+          build = json.load(open('/tmp/build.json'))
+          pred = json.load(open('/tmp/predict.json'))
+          assert build['environment'] == 'ci-container'
+          assert pred['backend'] == 'primary-model'
+          assert pred['fallback_used'] is False
+          print('container smoke passed')
+          PY
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-evidence
+          path: docs/evidence/*.json

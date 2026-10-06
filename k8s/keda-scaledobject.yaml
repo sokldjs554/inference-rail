@@ -1,0 +1,28 @@
+# Optional alternative to hpa.yaml. Requires KEDA and Prometheus in the cluster.
+# Do not apply this together with the CPU HPA for the same Deployment.
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: inference-rail-queue
+spec:
+  scaleTargetRef:
+    name: inference-rail
+  minReplicaCount: 2
+  maxReplicaCount: 10
+  pollingInterval: 15
+  cooldownPeriod: 180
+  fallback:
+    failureThreshold: 3
+    replicas: 3
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleDown:
+          stabilizationWindowSeconds: 300
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus.monitoring.svc.cluster.local:9090
+        metricName: inference_rail_queue_saturation
+        query: sum(inference_queue_depth) / clamp_min(sum(inference_queue_capacity), 1)
+        threshold: "0.60"

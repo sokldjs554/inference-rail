@@ -1,0 +1,41 @@
+groups:
+  - name: inference-rail
+    rules:
+      - alert: InferenceRailHighP95Latency
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (rate(inference_request_latency_seconds_bucket[5m]))
+          ) > 0.25
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "InferenceRail p95 latency is above 250 ms"
+
+      - alert: InferenceRailQueueSaturation
+        expr: |
+          sum(inference_queue_depth) / clamp_min(sum(inference_queue_capacity), 1) > 0.70
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "InferenceRail queue is above 70% capacity"
+
+      - alert: InferenceRailFallbackSpike
+        expr: |
+          sum(rate(inference_fallback_total[5m]))
+          / clamp_min(sum(rate(inference_requests_total{status="ok"}[5m])), 0.001) > 0.20
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "More than 20% of successful inference traffic is using fallback"
+
+      - alert: InferenceRailBackendUnavailable
+        expr: increase(inference_requests_total{status="unavailable"}[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "InferenceRail returned backend-unavailable responses"

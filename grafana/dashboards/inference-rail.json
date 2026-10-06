@@ -1,0 +1,44 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "p95 request latency",
+      "targets": [{"expr": "histogram_quantile(0.95, sum by (le) (rate(inference_request_latency_seconds_bucket[5m])))", "legendFormat": "p95"}],
+      "fieldConfig": {"defaults": {"unit": "s"}},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+    },
+    {
+      "type": "timeseries",
+      "title": "Throughput by status",
+      "targets": [{"expr": "sum by (status) (rate(inference_requests_total[1m]))", "legendFormat": "{{status}}"}],
+      "fieldConfig": {"defaults": {"unit": "reqps"}},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+    },
+    {
+      "type": "timeseries",
+      "title": "Queue depth / capacity",
+      "targets": [
+        {"expr": "sum(inference_queue_depth)", "legendFormat": "depth"},
+        {"expr": "sum(inference_queue_capacity)", "legendFormat": "capacity"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+    },
+    {
+      "type": "timeseries",
+      "title": "Fallback traffic",
+      "targets": [{"expr": "sum(rate(inference_fallback_total[1m]))", "legendFormat": "fallback req/s"}],
+      "fieldConfig": {"defaults": {"unit": "reqps"}},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["ml-serving", "reliability"],
+  "templating": {"list": []},
+  "time": {"from": "now-30m", "to": "now"},
+  "timezone": "browser",
+  "title": "InferenceRail · ML Serving Reliability",
+  "uid": "inference-rail",
+  "version": 1
+}

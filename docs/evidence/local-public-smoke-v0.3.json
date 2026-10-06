@@ -1,0 +1,37 @@
+{
+  "passed": true,
+  "ready": {
+    "status": "ready",
+    "queue_depth": 0
+  },
+  "build": {
+    "app": "InferenceRail",
+    "version": "0.3.0",
+    "revision": "local-smoke-sha",
+    "environment": "local-smoke",
+    "backend_mode": "mock"
+  },
+  "prediction": {
+    "request_id": "bb66c0cea431422eae967f293b4b8f55",
+    "label": "pass",
+    "score": 0.097871,
+    "backend": "primary-model",
+    "fallback_used": false,
+    "batch_size": 1,
+    "queue_ms": 12.22,
+    "service_ms": 41.55
+  },
+  "runtime_status": {
+    "backend_mode": "mock",
+    "queue_depth": 0,
+    "queue_capacity": 256,
+    "breaker_state": "closed",
+    "breaker_failures": 0,
+    "processed_requests": 1,
+    "expired_requests": 0,
+    "fallback_requests": 0,
+    "primary_failures": 0,
+    "primary_timeouts": 0,
+    "fallback_failures": 0
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "baseline": {
+    "requests": 160,
+    "concurrency": 24,
+    "duration_s": 6.641,
+    "throughput_rps": 24.09,
+    "success_rate": 1.0,
+    "status_codes": {
+      "200": 160
+    },
+    "p50_ms": 993.09,
+    "p95_ms": 996.4,
+    "p99_ms": 997.15,
+    "mean_batch_size": 1,
+    "max_batch_size": 1
+  },
+  "batched": {
+    "requests": 160,
+    "concurrency": 24,
+    "duration_s": 1.274,
+    "throughput_rps": 125.6,
+    "success_rate": 1.0,
+    "status_codes": {
+      "200": 160
+    },
+    "p50_ms": 185.55,
+    "p95_ms": 190.43,
+    "p99_ms": 206.26,
+    "mean_batch_size": 8,
+    "max_batch_size": 8
+  },
+  "throughput_gain_x": 5.21,
+  "p95_change_pct": -80.89
+}

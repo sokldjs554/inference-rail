@@ -1,0 +1,13 @@
+# Optional: requires Prometheus Operator / kube-prometheus-stack.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: inference-rail
+spec:
+  selector:
+    matchLabels:
+      app: inference-rail
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s

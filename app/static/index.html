@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>InferenceRail · ML Serving Reliability Lab</title>
+<style>
+:root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#101828;background:#f4f6f8}
+*{box-sizing:border-box}body{margin:0}.wrap{max-width:1220px;margin:0 auto;padding:36px 24px 64px}
+.panel{background:#fff;border:1px solid #e4e7ec;border-radius:20px;box-shadow:0 12px 32px rgba(16,24,40,.055)}
+.hero{display:grid;grid-template-columns:1.25fr .95fr;gap:18px}.hero-main{padding:30px}.hero-side{padding:24px}
+.eyebrow{font-size:12px;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:#175cd3}.hero h1{font-size:46px;line-height:1;margin:10px 0 14px;letter-spacing:-.045em}.hero p{font-size:16px;line-height:1.72;color:#475467;margin:0;max-width:760px}
+.badges{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}.badge{font-size:12px;font-weight:700;padding:7px 10px;border:1px solid #d0d5dd;border-radius:999px;background:#f9fafb;color:#344054}
+.arch{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;line-height:1.7;background:#101828;color:#d1fadf;border-radius:14px;padding:18px;white-space:pre-wrap;margin-top:10px}
+.section{margin-top:18px}.grid{display:grid;grid-template-columns:1.05fr .95fr;gap:18px}.section-title{font-size:18px;font-weight:800;margin:0 0 8px;letter-spacing:-.02em}.section-copy{font-size:13px;color:#667085;line-height:1.6;margin:0 0 16px}
+.controls{padding:24px}.status{padding:24px}.metric-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.metric{padding:14px;border-radius:13px;background:#f9fafb;border:1px solid #eaecf0}.metric b{font-size:21px;display:block;margin-top:5px;letter-spacing:-.03em;overflow-wrap:anywhere}.metric span{font-size:10.5px;color:#667085;text-transform:uppercase;letter-spacing:.07em}
+textarea{width:100%;min-height:112px;border:1px solid #d0d5dd;border-radius:12px;padding:13px;font:inherit;line-height:1.55;resize:vertical;outline:none}textarea:focus{border-color:#84adff;box-shadow:0 0 0 3px #eff4ff}
+.row{display:flex;flex-wrap:wrap;gap:8px;margin-top:11px}button{border:1px solid transparent;border-radius:10px;padding:10px 13px;font-weight:750;cursor:pointer;font-size:13px}.primary{background:#101828;color:#fff}.secondary{background:#fff;color:#344054;border-color:#d0d5dd}.danger{background:#fff4ed;color:#b42318;border-color:#ffd6ae}.warn{background:#fffaeb;color:#b54708;border-color:#fedf89}
+.result{margin-top:14px;padding:15px;border-radius:12px;background:#101828;color:#d0d5dd;min-height:150px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;line-height:1.55;white-space:pre-wrap;overflow:auto}.foot{margin-top:14px;color:#667085;font-size:12px;line-height:1.6}
+.evidence{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:22px}.evidence-card{border:1px solid #eaecf0;border-radius:13px;padding:16px}.evidence-card strong{display:block;font-size:20px;letter-spacing:-.025em;margin:4px 0}.evidence-card span{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:#667085}.evidence-card p{font-size:12.5px;color:#475467;line-height:1.55;margin:7px 0 0}
+@media(max-width:900px){.hero,.grid{grid-template-columns:1fr}.hero h1{font-size:38px}.metric-grid,.evidence{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:560px){.wrap{padding:20px 14px 40px}.metric-grid,.evidence{grid-template-columns:1fr}.hero-main,.hero-side,.controls,.status{padding:20px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero">
+    <section class="panel hero-main">
+      <div class="eyebrow">ML Serving Reliability Lab</div>
+      <h1>InferenceRail</h1>
+      <p>AI 모델을 호출하는 API가 아니라, <b>트래픽 급증·backend 지연·모델 장애가 발생해도 서비스 경계를 지키는 inference gateway</b>를 검증하는 프로젝트입니다. bounded queue, dynamic batching, deadline, circuit breaker, fallback, tracing, autoscaling contract를 한 흐름에서 보여줍니다.</p>
+      <div class="badges"><span class="badge">FastAPI</span><span class="badge">Triton V2 adapter</span><span class="badge">Dynamic batching</span><span class="badge">Backpressure</span><span class="badge">OpenTelemetry span links</span><span class="badge">Prometheus</span><span class="badge">Kubernetes / KEDA</span></div>
+    </section>
+    <section class="panel hero-side">
+      <div class="section-title">Request path</div>
+      <div class="arch">Client request + deadline
+  ↓
+FastAPI Gateway
+  ↓
+Bounded Queue ──→ 429 fast rejection
+  ↓ expired      → drop before model call
+Dynamic Batcher
+  ↓
+Primary Model ── timeout/failure ─→ Circuit Breaker
+  ↓                                    ↓
+Response ←──────────── Fallback Model ←─┘
+  ↓
+Prometheus + linked OpenTelemetry spans</div>
+    </section>
+  </div>
+
+  <div class="section grid">
+    <section class="panel controls">
+      <h2 class="section-title">운영 시나리오</h2>
+      <p class="section-copy">정상 요청만 보지 않고 batching, 장애 전환, circuit open을 직접 재현합니다.</p>
+      <textarea id="text">신규 요청의 리스크 점수를 계산합니다.</textarea>
+      <div class="row">
+        <button class="primary" onclick="predict(false)">정상 요청</button>
+        <button class="secondary" onclick="burst()">24개 동시 요청</button>
+        <button class="danger" onclick="predict(true)">Primary 장애 1회</button>
+        <button class="warn" onclick="openBreaker()">Breaker 열기</button>
+      </div>
+      <div id="result" class="result">시나리오 결과가 여기에 표시됩니다.</div>
+    </section>
+    <section class="panel status">
+      <h2 class="section-title">런타임 상태</h2>
+      <p class="section-copy">서버 내부 상태를 별도 운영 API로 확인합니다.</p>
+      <div class="metric-grid">
+        <div class="metric"><span>Backend mode</span><b id="mode">-</b></div>
+        <div class="metric"><span>Queue</span><b id="queue">-</b></div>
+        <div class="metric"><span>Breaker</span><b id="breaker">-</b></div>
+        <div class="metric"><span>Processed</span><b id="processed">-</b></div>
+        <div class="metric"><span>Fallback</span><b id="fallback">-</b></div>
+        <div class="metric"><span>Primary timeout</span><b id="timeouts">-</b></div>
+        <div class="metric"><span>Version</span><b id="version">-</b></div>
+        <div class="metric"><span>Revision</span><b id="revision">-</b></div>
+        <div class="metric"><span>Environment</span><b id="environment">-</b></div>
+      </div>
+      <p class="foot">기본 실행은 deterministic mock으로 서버 구조를 재현합니다. `BACKEND_MODE=triton`에서는 NVIDIA Triton V2 HTTP contract를 사용하는 remote model backend로 교체됩니다.</p>
+    </section>
+  </div>
+
+  <section class="panel section evidence">
+    <div class="evidence-card"><span>Batching benchmark</span><strong>5.20–5.21×</strong><p>160 requests / concurrency 24 조건에서 최종 3회 반복한 처리량 개선 범위.</p></div>
+    <div class="evidence-card"><span>p95 latency</span><strong>−80.89~−81.02%</strong><p>batch 8 p95는 189.06~190.43 ms. 모델 성능이 아닌 gateway batching 효과 측정.</p></div>
+    <div class="evidence-card"><span>Overload behavior</span><strong>57 / 60</strong><p>queue capacity 2 강제 조건에서 57건을 429로 즉시 차단하고 3건만 admission.</p></div>
+  </section>
+</div>
+<script>
+const out=document.getElementById('result');
+const elMode=document.getElementById('mode');
+const elQueue=document.getElementById('queue');
+const elBreaker=document.getElementById('breaker');
+const elProcessed=document.getElementById('processed');
+const elFallback=document.getElementById('fallback');
+const elTimeouts=document.getElementById('timeouts');
+const elVersion=document.getElementById('version');
+const elRevision=document.getElementById('revision');
+const elEnvironment=document.getElementById('environment');
+async function refresh(){
+  try{
+    const [r,b]=await Promise.all([fetch('/ops/status'),fetch('/ops/build')]); const d=await r.json(); const build=await b.json();
+    elMode.textContent=d.backend_mode; elQueue.textContent=`${d.queue_depth}/${d.queue_capacity}`;
+    elBreaker.textContent=`${d.breaker_state} · ${d.breaker_failures}`;
+    elProcessed.textContent=d.processed_requests; elFallback.textContent=d.fallback_requests;
+    elTimeouts.textContent=d.primary_timeouts;
+    elVersion.textContent=build.version; elRevision.textContent=String(build.revision).slice(0,10); elEnvironment.textContent=build.environment;
+  }catch(e){/* demo keeps last known status */}
+}
+async function send(text){
+  const started=performance.now();
+  const r=await fetch('/v1/predict',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text})});
+  const body=await r.json();
+  return {status:r.status,client_ms:Number((performance.now()-started).toFixed(2)),...body};
+}
+async function predict(fail){
+  const source=document.getElementById('text').value;
+  const body=await send(fail ? `${source} __FAIL_PRIMARY__` : source);
+  out.textContent=JSON.stringify(body,null,2); await refresh();
+}
+function percentile(values,p){const v=[...values].sort((a,b)=>a-b);return v[Math.min(v.length-1,Math.round((v.length-1)*p))]}
+async function burst(){
+  const source=document.getElementById('text').value;
+  const rows=await Promise.all(Array.from({length:24},(_,i)=>send(`${source} #${i+1}`)));
+  const ok=rows.filter(x=>x.status===200); const times=rows.map(x=>x.client_ms);
+  const batches=[...new Set(ok.map(x=>x.batch_size))].sort((a,b)=>a-b);
+  out.textContent=JSON.stringify({requests:rows.length,success:ok.length,status_codes:rows.reduce((a,x)=>(a[x.status]=(a[x.status]||0)+1,a),{}),batch_sizes:batches,p50_client_ms:percentile(times,.5),p95_client_ms:percentile(times,.95)},null,2);
+  await refresh();
+}
+async function openBreaker(){
+  const source=document.getElementById('text').value; const events=[];
+  for(let i=0;i<3;i++) events.push(await send(`${source} __FAIL_PRIMARY__ #${i+1}`));
+  const status=await (await fetch('/ops/status')).json();
+  out.textContent=JSON.stringify({message:'3회 강제 실패 후 breaker 상태',events:events.map(x=>({status:x.status,backend:x.backend,fallback_used:x.fallback_used})),runtime:status},null,2);
+  await refresh();
+}
+refresh(); setInterval(refresh,1800);
+</script>
+</body>
+</html>

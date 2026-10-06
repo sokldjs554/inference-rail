@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: inference-rail-demo
+    runtime: python
+    plan: free
+    autoDeploy: true
+    buildCommand: pip install .
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1 --timeout-graceful-shutdown 25
+    healthCheckPath: /health/ready
+    envVars:
+      - key: BACKEND_MODE
+        value: mock
+      - key: QUEUE_CAPACITY
+        value: "256"
+      - key: MAX_BATCH_SIZE
+        value: "8"
+      - key: MAX_BATCH_WAIT_MS
+        value: "12"
+      - key: REQUEST_TIMEOUT_MS
+        value: "1200"
+      - key: SHUTDOWN_DRAIN_TIMEOUT_MS
+        value: "5000"
+      - key: PRIMARY_TIMEOUT_MS
+        value: "700"
+      - key: FALLBACK_TIMEOUT_MS
+        value: "350"
+      - key: BREAKER_FAILURE_THRESHOLD
+        value: "3"
+      - key: BREAKER_RECOVERY_SECONDS
+        value: "5"

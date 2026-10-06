@@ -1,0 +1,22 @@
+# Optional production-like backend settings. Apply instead of configmap.yaml after
+# changing TRITON_URL / model contract to match the target cluster.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: inference-rail-config
+data:
+  BACKEND_MODE: "triton"
+  TRITON_URL: "http://triton.default.svc.cluster.local:8000"
+  TRITON_MODEL: "text_classifier"
+  TRITON_INPUT_NAME: "TEXT"
+  TRITON_LABEL_OUTPUT: "LABEL"
+  TRITON_SCORE_OUTPUT: "SCORE"
+  QUEUE_CAPACITY: "256"
+  MAX_BATCH_SIZE: "8"
+  MAX_BATCH_WAIT_MS: "12"
+  REQUEST_TIMEOUT_MS: "1200"
+  SHUTDOWN_DRAIN_TIMEOUT_MS: "5000"
+  PRIMARY_TIMEOUT_MS: "700"
+  FALLBACK_TIMEOUT_MS: "350"
+  BREAKER_FAILURE_THRESHOLD: "3"
+  BREAKER_RECOVERY_SECONDS: "5"
