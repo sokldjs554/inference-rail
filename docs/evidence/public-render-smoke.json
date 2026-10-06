@@ -1,0 +1,68 @@
+{
+  "verified_at": "2026-10-06T08:49:00Z",
+  "public_url": "https://inference-rail-demo.onrender.com",
+  "render": {
+    "service_id": "srv-db2bb53bc2fs7380aqqg",
+    "deploy_id": "dep-db2bb6bbc2fs7380au1g",
+    "status": "live",
+    "region": "singapore",
+    "revision": "a37d74082ba26af1f9a5e596d68d2acf5fffcdcd"
+  },
+  "external_get": {
+    "root": {
+      "passed": true,
+      "title": "InferenceRail · ML Serving Reliability Lab"
+    },
+    "health_ready": {
+      "passed": true,
+      "status": "ready",
+      "queue_depth": 0
+    },
+    "ops_build": {
+      "passed": true,
+      "app": "InferenceRail",
+      "version": "0.3.0",
+      "revision": "a37d74082ba26af1f9a5e596d68d2acf5fffcdcd",
+      "environment": "render",
+      "backend_mode": "mock"
+    },
+    "ops_status": {
+      "passed": true,
+      "backend_mode": "mock",
+      "queue_depth": 0,
+      "queue_capacity": 256,
+      "breaker_state": "closed",
+      "breaker_failures": 0
+    }
+  },
+  "browser_predict": {
+    "passed": true,
+    "http_status": 200,
+    "label": "review",
+    "score": 0.888523,
+    "backend": "primary-model",
+    "fallback_used": false,
+    "batch_size": 1,
+    "queue_ms": 12.22,
+    "service_ms": 41.43,
+    "client_ms": 257.7,
+    "runtime_status": {
+      "queue": "0/256",
+      "breaker": "closed · 0",
+      "version": "0.3.0",
+      "revision": "a37d74082b",
+      "environment": "render",
+      "backend_mode": "mock"
+    }
+  },
+  "github_actions": {
+    "run_id": 37438191739,
+    "run_url": "https://github.com/sokldjs554/inference-rail/actions/runs/37438191739",
+    "conclusion": "success",
+    "lint": "pass",
+    "release_verification": "pass",
+    "docker_build": "pass",
+    "container_smoke": "pass",
+    "artifact_upload": "pass"
+  }
+}

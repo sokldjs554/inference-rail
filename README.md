@@ -6,6 +6,14 @@
 
 > 기본 backend는 deterministic mock입니다. 모델 정확도를 꾸미는 프로젝트가 아니라 서버 구조의 특성을 반복 측정하기 위한 선택입니다. 실제 모델 서버 경계는 `BACKEND_MODE=triton`으로 분리했고, NVIDIA Triton V2 HTTP request/response contract를 사용하는 adapter와 별도 프로세스 기반 contract 검증을 포함했습니다.
 
+## 바로 확인하기
+
+- **공개 데모:** https://inference-rail-demo.onrender.com
+- **GitHub Actions 검증:** https://github.com/sokldjs554/inference-rail/actions/runs/37438191739
+- **현재 공개 배포 revision:** `a37d74082ba26af1f9a5e596d68d2acf5fffcdcd`
+
+공개 데모는 Render Singapore에서 `BACKEND_MODE=mock`으로 운영합니다. 배포 후 외부 브라우저에서 `/`, `/health/ready`, `/ops/build`, `/ops/status`를 확인했고, 데모의 `정상 요청` 버튼을 실제 클릭해 **HTTP 200 / primary-model / fallback=false** 응답까지 검증했습니다.
+
 ## 한눈에 보기
 
 ```text
@@ -45,6 +53,8 @@ CPU HPA or queue-saturation KEDA scaling
 | Batched success rate | **100%** |
 | YAML/운영 설정 | **15개 파일 parse/contract 검증 통과** |
 | SLO gate | **pass** |
+| GitHub Actions | **lint + release verification + Docker build + container smoke pass** |
+| Render 공개 배포 | **live / revision 일치 / browser predict pass** |
 
 벤치마크 조건은 `160 requests / concurrency 24`, deterministic mock workload입니다. **실제 GPU 또는 실제 모델의 성능 수치가 아니라 gateway batching 구조의 차이를 분리해 측정한 값**입니다.
 
@@ -55,6 +65,7 @@ CPU HPA or queue-saturation KEDA scaling
 - `docs/evidence/release-verification-run-1.json` ~ `release-verification-run-3.json`
 - `docs/evidence/release-benchmark-run-1.json` ~ `release-benchmark-run-3.json`
 - `docs/verification-20261006.md`
+- `docs/evidence/public-render-smoke.json`
 
 ## 왜 이 구조인가
 
@@ -205,7 +216,14 @@ python scripts/slo_gate.py benchmark-results.json
 
 ## 배포와 provenance
 
-공개 데모는 `render.yaml`을 사용해 Python runtime으로 배포하도록 준비했습니다. 공개 데모에서는 재현성을 위해 deterministic mock backend를 사용하고, 실제 모델 서버 경계는 별도의 Triton adapter/contract 검증으로 분리합니다.
+공개 데모는 `render.yaml`과 동일한 Python runtime 설정으로 **실제 Render에 배포했습니다**. 공개 데모에서는 재현성을 위해 deterministic mock backend를 사용하고, 실제 모델 서버 경계는 별도의 Triton adapter/contract 검증으로 분리합니다.
+
+- 공개 URL: https://inference-rail-demo.onrender.com
+- 배포 region: Singapore
+- 배포 revision: `a37d74082ba26af1f9a5e596d68d2acf5fffcdcd`
+- 외부 검증: `/health/ready`, `/ops/build`, `/ops/status`, UI `정상 요청` 모두 성공
+
+GitHub Actions에서도 같은 revision을 대상으로 **release verification → Docker image build → 실제 container start → health/build/predict smoke**까지 통과했습니다.
 
 배포 뒤에는 다음 endpoint로 **실행 중인 코드가 어떤 revision인지** 확인할 수 있습니다.
 
@@ -371,10 +389,13 @@ inference-rail/
 - Prometheus/Grafana/OTel 설정 구조
 - Render 배포 manifest contract
 - `/ops/build` deployment provenance + 공개 URL smoke script
+- GitHub Actions Linux runner에서 실제 Docker image build
+- 빌드한 Docker container 실제 기동 후 health/build/predict smoke
+- Render 공개 배포 및 외부 브라우저 정상 예측
 
 아직 실제 runtime 검증하지 못한 것:
 
-- Docker daemon에서 실제 image build / compose 전체 기동
+- Docker Compose의 Prometheus/Grafana/Jaeger 전체 multi-container stack 기동
 - 실제 Kubernetes cluster에서 rollout / HPA / KEDA scale-out
 - 실제 NVIDIA Triton Server + GPU inference
 - 실제 GPU utilization / VRAM / model-level throughput

@@ -156,3 +156,35 @@ queue에 무제한 적재하지 않고 처리 가능한 요청만 admission하�
 - 실제 GPU utilization/VRAM benchmark
 
 실제 cluster/GPU 환경에서 이 항목을 수행하기 전까지는 production-grade runtime 완료라고 표현하지 않습니다.
+
+
+## GitHub Actions / Docker runtime 검증
+
+커밋 `a37d74082ba26af1f9a5e596d68d2acf5fffcdcd`에서 GitHub Actions run #2를 실행했습니다.
+
+- Ruff lint: **pass**
+- release verification: **pass**
+- Docker image build: **pass**
+- 실제 container start: **pass**
+- container `/health/ready`: **pass**
+- container `/ops/build`: **pass**
+- container `/v1/predict`: **pass**
+- release evidence artifact upload: **pass**
+
+Actions: https://github.com/sokldjs554/inference-rail/actions/runs/37438191739
+
+## Render 공개 배포 검증
+
+공개 URL: https://inference-rail-demo.onrender.com
+
+배포 revision: `a37d74082ba26af1f9a5e596d68d2acf5fffcdcd`
+
+외부 검증 결과:
+
+- `/`: InferenceRail demo page 정상 로드
+- `/health/ready`: `status=ready, queue_depth=0`
+- `/ops/build`: version `0.3.0`, environment `render`, revision 일치
+- `/ops/status`: backend `mock`, queue `0/256`, breaker `closed`
+- 브라우저에서 `정상 요청` 버튼 1회 실행: HTTP 200, `primary-model`, `fallback_used=false`, batch size 1
+
+원본 요약은 `docs/evidence/public-render-smoke.json`에 보존했습니다.
