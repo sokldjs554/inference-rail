@@ -18,7 +18,7 @@
 
 ## 공개 데모에서 보는 것
 
-v0.7의 전면 기능은 **Service Boundary Verifier**입니다.
+v0.8의 전면 기능은 **Service Boundary Verifier**입니다.
 
 InferenceRail은 NVIDIA Triton Model Analyzer 같은 모델-runtime 최적화 도구를 다시 구현하려는 프로젝트가 아닙니다. Model Analyzer는 공식적으로 max batch size, instance count, request concurrency/rate를 탐색하고 latency/throughput/GPU-memory 제약을 적용할 수 있습니다.
 
@@ -45,7 +45,7 @@ InferenceRail은 그 **다음 경계**를 검증합니다.
 
 SLO-to-Config Compiler, Safe Operating Envelope, Request Flight Recorder, Shadow model comparison, Kubernetes/Triton/Jaeger 증거는 Deep Dive에서 확인할 수 있습니다.
 
-### 공개 v0.7 Service Boundary Proof 실측
+### 공개 v0.8 Service Boundary Proof 실측
 
 공개 Render 데모에서 `flash_crowd / p95 ≤ 250ms / success ≥ 99.5%` 기본 조건으로 실행했습니다.
 
@@ -59,11 +59,11 @@ SLO-to-Config Compiler, Safe Operating Envelope, Request Flight Recorder, Shadow
 
 후보 `Throughput Guard`는 모델/정상 부하 기준으로는 좋은 설정이었지만 slow-primary 경계에서 service SLO를 위반했습니다.
 
-따라서 `PRIMARY_TIMEOUT_MS=460`을 **137ms**로 낮춰 같은 slow-primary 조건을 다시 실행했고:
+따라서 고정 비율로 timeout을 정하지 않고 같은 slow-primary 조건에 여러 `PRIMARY_TIMEOUT_MS` 후보를 실제 replay했습니다. **SLO를 만족하는 값 중 가장 큰 timeout**을 선택해 primary에 가능한 한 많은 기회를 남기면서 end-to-end SLO를 지키도록 했습니다.
 
-- p95 **159.38ms**
-- success **100%**
-- hardened result **SERVICE-SAFE**
+- 각 timeout 후보의 p95 / success / fallback 결과를 Decision Evidence로 보존
+- 선택된 timeout을 동일 failure condition에 다시 적용
+- hardened result가 모든 service-boundary invariant를 통과해야만 **SERVICE-SAFE**로 판정
 
 를 확인했습니다.
 
@@ -74,12 +74,23 @@ QUEUE_CAPACITY=32
 MAX_BATCH_SIZE=8
 MAX_BATCH_WAIT_MS=12
 REQUEST_TIMEOUT_MS=500
-PRIMARY_TIMEOUT_MS=137
+PRIMARY_TIMEOUT_MS=<measured timeout replay 결과>
 BREAKER_FAILURE_THRESHOLD=3
 ```
 
-원본 측정 요약은 `docs/evidence/service-boundary-public-v0.7.json`에 보존합니다.
+원본 측정 요약은 `docs/evidence/service-boundary-public-v0.8.json`에 보존합니다.
 
+
+### PASS의 의미를 하나로 뭉개지 않습니다
+
+Service Boundary Verifier의 각 시나리오는 서로 다른 실패 경계를 검증하므로 PASS 기준도 명시적으로 다릅니다.
+
+- **Healthy / Slow primary:** 입력한 success rate + p95 SLO를 동시에 만족
+- **Flash crowd:** accepted request의 p95가 SLO 안에 있고, timeout/unavailable 없이 excess load가 명시적인 429 shedding으로 제한되는 controlled degradation
+- **Deadline waste:** client deadline이 지난 요청이 model call 전에 제거되고 wasted model call이 0
+- **Failure + recovery:** breaker open 동안 primary call이 0이고 fallback 후 recovery probe로 closed 복귀
+
+즉 overload에서 429가 존재한다고 이를 99.5% user-success SLO 통과라고 표현하지 않습니다. **“SLO PASS”와 “boundary invariant PASS”를 분리**해 보여줍니다.
 
 ## 한눈에 보기
 
