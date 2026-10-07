@@ -1,0 +1,114 @@
+{
+  "verified_at": "2026-10-07T01:12:00Z",
+  "public_url": "https://inference-rail-demo.onrender.com",
+  "runtime_revision": "31bdad4bde2a79e187663836b386483026511b1f",
+  "version": "0.8.0",
+  "input": {
+    "profile": "flash_crowd",
+    "target_p95_ms": 250,
+    "min_success_rate": 0.995
+  },
+  "candidate": {
+    "policy": "throughput_guard",
+    "workload_fingerprint": "11c1628c98148a1a",
+    "service_safe": false
+  },
+  "boundaries": {
+    "healthy": {
+      "passed": true,
+      "criterion": "success>=0.995 and p95<=250ms",
+      "p95_ms": 59.64,
+      "success_rate": 1,
+      "shed": 0,
+      "fallback": 0
+    },
+    "flash_crowd": {
+      "passed": true,
+      "criterion": "controlled degradation: explicit 429 shedding, no timeout/unavailable, accepted-request p95<=250ms",
+      "p95_ms": 237.74,
+      "success_rate": 0.5,
+      "shed": 32,
+      "fallback": 0
+    },
+    "slow_primary": {
+      "passed": false,
+      "criterion": "success>=0.995 and p95<=250ms",
+      "p95_ms": 482.14,
+      "success_rate": 1,
+      "fallback": 24
+    },
+    "deadline_waste": {
+      "passed": true,
+      "expired_before_model": 1,
+      "wasted_model_calls": 0
+    },
+    "failure_recovery": {
+      "passed": true,
+      "breaker": "open -> closed",
+      "fallback_requests": 4
+    }
+  },
+  "hardening": {
+    "method": "measured_timeout_replay",
+    "selection_rule": "largest primary timeout that still satisfies the same end-to-end SLO",
+    "trials": [
+      {
+        "primary_timeout_ms": 60,
+        "passed": true,
+        "p95_ms": 82.02,
+        "success_rate": 1
+      },
+      {
+        "primary_timeout_ms": 87,
+        "passed": true,
+        "p95_ms": 109.12,
+        "success_rate": 1
+      },
+      {
+        "primary_timeout_ms": 112,
+        "passed": true,
+        "p95_ms": 134.19,
+        "success_rate": 1
+      },
+      {
+        "primary_timeout_ms": 137,
+        "passed": true,
+        "p95_ms": 159.16,
+        "success_rate": 1
+      },
+      {
+        "primary_timeout_ms": 175,
+        "passed": true,
+        "p95_ms": 197.69,
+        "success_rate": 1
+      },
+      {
+        "primary_timeout_ms": 212,
+        "passed": true,
+        "p95_ms": 234.41,
+        "success_rate": 1
+      },
+      {
+        "primary_timeout_ms": 460,
+        "passed": false,
+        "p95_ms": 482.12,
+        "success_rate": 1
+      }
+    ],
+    "selected_primary_timeout_ms": 212,
+    "hardened_verification": {
+      "passed": true,
+      "p95_ms": 234.35,
+      "success_rate": 1
+    }
+  },
+  "service_safe_contract": {
+    "queue_capacity": 32,
+    "batch_size": 8,
+    "batch_wait_ms": 12,
+    "request_timeout_ms": 500,
+    "primary_timeout_ms": 212,
+    "breaker_failure_threshold": 3
+  },
+  "scope_note": "synthetic deterministic workload; service-boundary behavior, not GPU model performance"
+}

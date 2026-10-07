@@ -81,6 +81,35 @@ BREAKER_FAILURE_THRESHOLD=3
 원본 측정 요약은 `docs/evidence/service-boundary-public-v0.8.json`에 보존합니다.
 
 
+따라서 고정 비율로 timeout을 정하지 않고 같은 slow-primary 조건에 여러 `PRIMARY_TIMEOUT_MS` 후보를 실제 replay했습니다. **SLO를 만족하는 값 중 가장 큰 timeout**을 선택해 primary에 가능한 한 많은 기회를 남기면서 end-to-end SLO를 지키도록 했습니다.
+
+공개 v0.8 실측:
+
+| PRIMARY_TIMEOUT_MS | 결과 | p95 | Success |
+|---:|---|---:|---:|
+| 60 | PASS | 82.02ms | 100% |
+| 87 | PASS | 109.12ms | 100% |
+| 112 | PASS | 134.19ms | 100% |
+| 137 | PASS | 159.16ms | 100% |
+| 175 | PASS | 197.69ms | 100% |
+| **212** | **PASS / SELECTED** | **234.41ms** | **100%** |
+| 460 | FAIL | 482.12ms | 100% |
+
+선택한 212ms를 동일 failure condition에 다시 적용한 결과 p95 **234.35ms / success 100%**로 통과했습니다.
+
+최종 Service-Safe Contract:
+
+```text
+QUEUE_CAPACITY=32
+MAX_BATCH_SIZE=8
+MAX_BATCH_WAIT_MS=12
+REQUEST_TIMEOUT_MS=500
+PRIMARY_TIMEOUT_MS=212
+BREAKER_FAILURE_THRESHOLD=3
+```
+
+원본 측정 요약은 `docs/evidence/service-boundary-public-v0.8.json`에 보존합니다.
+
 ### PASS의 의미를 하나로 뭉개지 않습니다
 
 Service Boundary Verifier의 각 시나리오는 서로 다른 실패 경계를 검증하므로 PASS 기준도 명시적으로 다릅니다.
