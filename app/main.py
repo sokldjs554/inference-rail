@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 import statistics
 import time
 import uuid
@@ -10,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request, status
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
@@ -123,6 +126,13 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title=settings.app_name, version=settings.app_version, lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"],
+)
 configure_telemetry(app, settings.otlp_endpoint)
 
 
@@ -307,36 +317,63 @@ async def policy_lab(payload: PolicyLabRequest) -> dict[str, Any]:
 @app.post("/v1/service-boundary-proof")
 async def service_boundary_proof(payload: ServiceBoundaryRequest) -> dict[str, Any]:
     traffic = _traffic_profile(payload.profile)
-    results = {}
-    for name, policy in _candidate_policies().items():
-        results[name] = await _run_policy_trial(
-            name=f"boundary-candidate-{name}",
-            policy=policy,
+    if payload.config is not None:
+        selected_policy = "custom_config"
+        selected_config = payload.config.model_dump()
+        fingerprint_payload = json.dumps(
+            {
+                "profile": payload.profile,
+                "traffic": traffic,
+                "config": selected_config,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        workload_fingerprint = hashlib.sha256(fingerprint_payload).hexdigest()[:16]
+        objective = {
+            "target_p95_ms": payload.target_p95_ms,
+            "min_success_rate": payload.min_success_rate,
+            "source": "user_supplied_config",
+        }
+        candidate_source = "user_supplied_config"
+    else:
+        results = {}
+        for name, policy in _candidate_policies().items():
+            results[name] = await _run_policy_trial(
+                name=f"boundary-candidate-{name}",
+                policy=policy,
+                traffic=traffic,
+            )
+        receipt = choose_serving_policy(
+            profile=payload.profile,
             traffic=traffic,
+            results=results,
+            target_p95_ms=payload.target_p95_ms,
+            min_success_rate=payload.min_success_rate,
         )
-    receipt = choose_serving_policy(
-        profile=payload.profile,
-        traffic=traffic,
-        results=results,
-        target_p95_ms=payload.target_p95_ms,
-        min_success_rate=payload.min_success_rate,
-    )
+        selected_policy = receipt["selected_policy"]
+        selected_config = receipt["selected_config"]
+        workload_fingerprint = receipt["workload_fingerprint"]
+        objective = receipt["objective"]
+        candidate_source = "policy_replay"
+
     proof = await run_service_boundary_proof(
-        policy_name=receipt["selected_policy"],
-        policy=receipt["selected_config"],
+        policy_name=selected_policy,
+        policy=selected_config,
         target_p95_ms=payload.target_p95_ms,
         min_success_rate=payload.min_success_rate,
     )
     return {
         "profile": payload.profile,
-        "objective": receipt["objective"],
-        "workload_fingerprint": receipt["workload_fingerprint"],
-        "selected_policy": receipt["selected_policy"],
-        "selected_config": receipt["selected_config"],
+        "objective": objective,
+        "workload_fingerprint": workload_fingerprint,
+        "candidate_source": candidate_source,
+        "selected_policy": selected_policy,
+        "selected_config": selected_config,
         "service_boundary_proof": proof,
         "note": (
-            "candidate config is selected under replay, then attacked at request-"
-            "lifecycle boundaries that model-level profilers do not cover"
+            "candidate config is attacked at request-lifecycle boundaries that "
+            "model-level profilers do not cover"
         ),
     }
 

@@ -41,7 +41,9 @@ h1{font-size:58px;line-height:1.01;letter-spacing:-.06em;margin:14px 0 20px;max-
 .controls{padding:22px;border-right:1px solid var(--ink)}.label{font:700 9px var(--mono);letter-spacing:.1em;color:var(--muted);margin-bottom:8px}
 .profiles{display:grid;margin-bottom:18px}.profiles button{border:1px solid var(--line);border-bottom:0;background:white;padding:10px 11px;text-align:left;font-size:11.5px;cursor:pointer}
 .profiles button:last-child{border-bottom:1px solid var(--line)}.profiles button.active{background:var(--blue);color:#fff;border-color:var(--blue)}
-.field{margin:13px 0}.field input{width:100%;border:1px solid var(--line);background:#fff;padding:10px}
+.field{margin:13px 0}.field input,.field textarea{width:100%;border:1px solid var(--line);background:#fff;padding:10px}
+.field textarea{min-height:150px;resize:vertical;font:10.5px/1.55 var(--mono)}
+.candidate-mode{display:grid;grid-template-columns:1fr 1fr;margin-bottom:12px}.candidate-mode button{border:1px solid var(--line);background:#fff;padding:9px;cursor:pointer;font-size:10.5px}.candidate-mode button+button{border-left:0}.candidate-mode button.active{background:var(--ink);color:#fff;border-color:var(--ink)}
 .run{width:100%;margin-top:10px;background:var(--blue);color:#fff;border:1px solid var(--blue);padding:12px;font-weight:800;cursor:pointer}.run:disabled{opacity:.55;cursor:wait}
 .note{font-size:10.5px;line-height:1.55;color:var(--muted);margin:11px 0 0}.proof-area{padding:24px;min-width:0}
 .empty{min-height:430px;border:1px dashed var(--line);display:grid;place-items:center;text-align:center;color:var(--muted);padding:30px}
@@ -68,7 +70,7 @@ details{border-top:1px solid var(--line)}details:last-child{border-bottom:1px so
 </head>
 <body>
 <div class="page">
-<header class="top"><div><b>INFERENCERAIL</b> / SERVICE BOUNDARY VERIFIER</div><div class="top-meta"><span id="env">ENV —</span><span id="rev">REV —</span><span id="health" class="ready">● READY</span></div></header>
+<header class="top"><div><b>INFERENCERAIL</b> / SERVICE BOUNDARY VERIFIER</div><div class="top-meta"><span id="env">ENV —</span><span id="rev">REV —</span><span id="health" class="ready">● WAKING API</span></div></header>
 
 <section class="hero">
   <div class="hero-copy">
@@ -109,6 +111,20 @@ details{border-top:1px solid var(--line)}details:last-child{border-bottom:1px so
         <button data-profile="flash_crowd" class="active" onclick="chooseProfile('flash_crowd')">FLASH CROWD · 순간 폭주</button>
         <button data-profile="degraded_primary" onclick="chooseProfile('degraded_primary')">DEGRADED PRIMARY · 불안정</button>
       </div>
+      <div class="label">CANDIDATE SOURCE</div>
+      <div class="candidate-mode">
+        <button id="modePreset" class="active" onclick="chooseCandidateMode('preset')">AUTO SELECT</button>
+        <button id="modeCustom" onclick="chooseCandidateMode('custom')">MY CONFIG</button>
+      </div>
+      <div id="customConfigPanel" style="display:none">
+        <div class="field"><div class="label">PASTE CURRENT RUNTIME CONFIG</div><textarea id="customConfig">QUEUE_CAPACITY=32
+MAX_BATCH_SIZE=8
+MAX_BATCH_WAIT_MS=12
+REQUEST_TIMEOUT_MS=500
+PRIMARY_TIMEOUT_MS=460
+BREAKER_FAILURE_THRESHOLD=3</textarea></div>
+        <p class="note">현재 운영 설정을 그대로 붙여 넣으면 preset 선택을 건너뛰고 그 config 자체를 failure boundary에 넣습니다.</p>
+      </div>
       <div class="field"><div class="label">TARGET P95 (ms)</div><input id="targetP95" type="number" value="250" min="50" max="2000"></div>
       <div class="field"><div class="label">MIN SUCCESS RATE (%)</div><input id="targetSuccess" type="number" value="99.5" min="50" max="100" step="0.1"></div>
       <button class="run" id="runBtn" onclick="runBoundary()">후보 선택 → 경계 공격 → hardening replay search</button>
@@ -134,18 +150,26 @@ details{border-top:1px solid var(--line)}details:last-child{border-bottom:1px so
   <details><summary>Runtime proof <small>Kubernetes · KEDA · Triton · Jaeger</small></summary><div class="detail"><div class="proofs"><div class="proof"><span>HPA</span><b>2 → 6</b><small>kind 1.37 실제 scale-out</small></div><div class="proof"><span>KEDA</span><b>2 → 3</b><small>Prometheus queue metric</small></div><div class="proof"><span>TRITON</span><b>2.73.0</b><small>실제 NVIDIA Triton Server</small></div><div class="proof"><span>OTEL</span><b>TRACE OK</b><small>Jaeger inference trace</small></div></div></div></details>
 </section>
 
-<footer class="footer"><span>INFERENCERAIL · v0.8 · SERVICE BOUNDARY VERIFIER</span><span>SYNTHETIC WORKLOAD · NO REAL FINANCIAL DECISION</span></footer>
+<footer class="footer"><span>INFERENCERAIL · v0.9 · SERVICE BOUNDARY VERIFIER</span><span>SYNTHETIC WORKLOAD · NO REAL FINANCIAL DECISION</span></footer>
 </div>
 
 <script>
-let selectedProfile='flash_crowd';let lastContract=null;
+let selectedProfile='flash_crowd';let candidateMode='preset';let lastContract=null;
 const $=id=>document.getElementById(id);
+const BACKEND_ORIGIN=(location.hostname==='inference-rail-demo.onrender.com'||location.hostname==='localhost'||location.hostname==='127.0.0.1')?'':'https://inference-rail-demo.onrender.com';
 function esc(v){return String(v).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
-async function api(url,options={}){const r=await fetch(url,options);let b={};try{b=await r.json()}catch(e){}if(!r.ok)throw new Error(b.detail||('HTTP '+r.status));return b}
+async function api(url,options={}){const target=url.startsWith('/')?BACKEND_ORIGIN+url:url;const r=await fetch(target,options);let b={};try{b=await r.json()}catch(e){}if(!r.ok)throw new Error(b.detail||('HTTP '+r.status));return b}
 function chooseProfile(name){selectedProfile=name;document.querySelectorAll('[data-profile]').forEach(b=>b.classList.toggle('active',b.dataset.profile===name))}
+function chooseCandidateMode(mode){candidateMode=mode;$('modePreset').classList.toggle('active',mode==='preset');$('modeCustom').classList.toggle('active',mode==='custom');$('customConfigPanel').style.display=mode==='custom'?'block':'none'}
+function parseCustomConfig(){
+  const mapping={QUEUE_CAPACITY:'queue_capacity',MAX_BATCH_SIZE:'batch_size',MAX_BATCH_WAIT_MS:'batch_wait_ms',REQUEST_TIMEOUT_MS:'timeout_ms',PRIMARY_TIMEOUT_MS:'primary_timeout_ms',BREAKER_FAILURE_THRESHOLD:'breaker_threshold'};
+  const out={};
+  for(const raw of $('customConfig').value.split(/\r?\n/)){const line=raw.trim();if(!line||line.startsWith('#'))continue;const idx=line.indexOf('=');if(idx<1)continue;const key=line.slice(0,idx).trim(),value=Number(line.slice(idx+1).trim());if(mapping[key])out[mapping[key]]=value}
+  const required=Object.values(mapping);const missing=required.filter(k=>!Number.isFinite(out[k]));if(missing.length)throw new Error('config 누락: '+missing.join(', '));return out
+}
 function runFromHero(){document.getElementById('verifier').scrollIntoView({behavior:'smooth'});setTimeout(runBoundary,450)}
 function pct(v){return (v*100).toFixed(v===1?0:1)+'%'}
-function policyLabel(v){return {latency_guard:'Latency Guard',throughput_guard:'Throughput Guard',availability_guard:'Availability Guard'}[v]||v}
+function policyLabel(v){return {latency_guard:'Latency Guard',throughput_guard:'Throughput Guard',availability_guard:'Availability Guard',custom_config:'My Config'}[v]||v}
 function contractText(body){const p=body.service_boundary_proof,c=p.service_safe_contract;return [
   '# InferenceRail Service-Safe Contract',
   '# workload='+body.workload_fingerprint,
@@ -162,6 +186,7 @@ function contractText(body){const p=body.service_boundary_proof,c=p.service_safe
   'BREAKER_FAILURE_THRESHOLD='+c.breaker_threshold
 ].join('\n')}
 async function copyContract(){if(!lastContract)return;await navigator.clipboard.writeText(contractText(lastContract));$('copyBtn').textContent='COPIED'}
+function downloadProof(){if(!lastContract)return;const payload={exported_at:new Date().toISOString(),frontend_revision:$('rev').textContent,proof:lastContract};const blob=new Blob([JSON.stringify(payload,null,2)+'\n'],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='inference-rail-proof-'+lastContract.workload_fingerprint+'.json';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url)}
 function scenarioRow(name,label,x){
   const details=[];
   if(x.p95_ms!==undefined)details.push('p95 '+x.p95_ms+'ms');
@@ -176,10 +201,10 @@ function scenarioRow(name,label,x){
 async function runBoundary(){
   const btn=$('runBtn');btn.disabled=true;btn.textContent='BOUNDARY + HARDENING SEARCH 실행 중…';$('boundaryResult').innerHTML='<div class="empty">후보 policy를 고른 뒤 request lifecycle 경계를 실제로 재현하고 있습니다…</div>';
   try{
-    const body=await api('/v1/service-boundary-proof',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({
-      profile:selectedProfile,target_p95_ms:Number($('targetP95').value),min_success_rate:Number($('targetSuccess').value)/100
-    })});
-    lastContract=body;renderBoundary(body);
+    const payload={profile:selectedProfile,target_p95_ms:Number($('targetP95').value),min_success_rate:Number($('targetSuccess').value)/100};
+    if(candidateMode==='custom')payload.config=parseCustomConfig();
+    const body=await api('/v1/service-boundary-proof',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});
+    lastContract=body;renderBoundary(body);traceOne().catch(()=>{});
   }catch(e){$('boundaryResult').innerHTML='<div class="empty" style="color:var(--red)">실행 실패: '+esc(e.message)+'</div>'}
   finally{btn.disabled=false;btn.textContent='후보 선택 → 경계 공격 → hardening replay search'}
 }
@@ -195,7 +220,7 @@ function renderBoundary(body){
       scenarioRow('failure','Failure + recovery',s.failure_recovery)+
     '</div>'+
     '<div class="patch"><h3>Hardening Patch</h3><div class="patch-line"><div>PRIMARY_TIMEOUT_MS='+h.before_primary_timeout_ms+'</div><div class="arrow">→</div><div>PRIMARY_TIMEOUT_MS='+h.after_primary_timeout_ms+'</div></div><p>'+esc(h.reason)+'. <b>method:</b> '+esc(h.method)+'. 같은 slow-primary 조건에 timeout 후보를 실제 replay하고 SLO를 만족한 값 중 가장 큰 timeout을 선택했습니다. 선택 timeout '+h.after_primary_timeout_ms+'ms, 재검증 결과 <b>'+(p.hardened_slow_primary.passed?'PASS':'FAIL')+'</b>, p95 '+p.hardened_slow_primary.p95_ms+'ms / success '+pct(p.hardened_slow_primary.success_rate)+'.</p><div class="result">'+esc((h.timeout_search.trials||[]).map(t=>'timeout '+t.primary_timeout_ms+'ms → '+(t.passed?'PASS':'FAIL')+' / p95 '+t.p95_ms+'ms / success '+pct(t.success_rate)).join('\n'))+'</div></div>'+
-    '<div class="contract"><h3>Service-Safe Contract</h3><div class="code">'+esc(contractText(body))+'</div><button class="copy" id="copyBtn" onclick="copyContract()">COPY CONTRACT</button></div>';
+    '<div class="contract"><h3>Service-Safe Contract</h3><div class="code">'+esc(contractText(body))+'</div><button class="copy" id="copyBtn" onclick="copyContract()">COPY CONTRACT</button> <button class="copy" onclick="downloadProof()">DOWNLOAD PROOF.JSON</button></div>';
 }
 async function runSloCompiler(){
   $('sloResult').textContent='replay + concurrency sweep 중…';
@@ -205,7 +230,7 @@ async function runSloCompiler(){
 }
 async function traceOne(){const id='trace-'+Date.now().toString(36);$('flightResult').textContent='수집 중…';await api('/v1/predict',{method:'POST',headers:{'content-type':'application/json','x-request-id':id},body:JSON.stringify({text:'synthetic trace proof'})});const f=await api('/ops/flights/'+id);$('flightResult').textContent=f.events.map(e=>'+'+e.at_ms.toFixed(2)+'ms  '+e.stage+'  '+JSON.stringify(e.detail)).join('\n')}
 async function runShadow(){$('shadowResult').textContent='mirror 중…';const b=await api('/v1/shadow-compare',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text:'synthetic shadow proof'})});$('shadowResult').textContent='live='+b.serving_decision+'\nstable='+b.stable.label+' / '+b.stable.latency_ms+'ms\ncandidate='+b.candidate.label+' / '+b.candidate.latency_ms+'ms\ngate='+b.gate+'\nΔscore='+b.score_delta}
-async function refresh(){try{const [s,b]=await Promise.all([api('/ops/status'),api('/ops/build')]);$('env').textContent='ENV '+b.environment.toUpperCase();$('rev').textContent='REV '+String(b.revision).slice(0,10);$('health').textContent=s.breaker_state==='open'?'● FALLBACK':'● READY';$('health').className=s.breaker_state==='open'?'best':'ready'}catch(e){$('health').textContent='● OFFLINE';$('health').className='best'}}
+async function refresh(){try{$('health').textContent='● WAKING API';const [s,b]=await Promise.all([api('/ops/status'),api('/ops/build')]);$('env').textContent='ENV '+b.environment.toUpperCase();$('rev').textContent='REV '+String(b.revision).slice(0,10);$('health').textContent=s.breaker_state==='open'?'● FALLBACK':'● READY';$('health').className=s.breaker_state==='open'?'best':'ready'}catch(e){$('health').textContent='● OFFLINE';$('health').className='best'}}
 refresh();setInterval(refresh,2500);
 </script>
 </body>

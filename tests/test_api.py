@@ -18,7 +18,7 @@ def test_health_and_prediction():
         assert "slow primary" in demo.text
         build_body = client.get("/ops/build").json()
         assert build_body["app"] == "InferenceRail"
-        assert build_body["version"] == "0.8.0"
+        assert build_body["version"] == "0.9.0"
         assert build_body["backend_mode"] == "mock"
         status_body = client.get("/ops/status").json()
         assert status_body["backend_mode"] == "mock"
@@ -194,3 +194,32 @@ def test_service_boundary_proof_finds_and_hardens_slow_primary():
             proof["service_safe_contract"]["primary_timeout_ms"]
             == proof["hardening_patch"]["after_primary_timeout_ms"]
         )
+
+
+def test_service_boundary_accepts_user_supplied_config():
+    with TestClient(app) as client:
+        response = client.post(
+            "/v1/service-boundary-proof",
+            json={
+                "profile": "flash_crowd",
+                "target_p95_ms": 250,
+                "min_success_rate": 0.995,
+                "config": {
+                    "queue_capacity": 32,
+                    "batch_size": 8,
+                    "batch_wait_ms": 12,
+                    "timeout_ms": 500,
+                    "primary_timeout_ms": 460,
+                    "breaker_threshold": 3,
+                },
+            },
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["candidate_source"] == "user_supplied_config"
+        assert body["selected_policy"] == "custom_config"
+        assert body["selected_config"]["batch_size"] == 8
+        assert len(body["workload_fingerprint"]) == 16
+        proof = body["service_boundary_proof"]
+        assert proof["candidate_policy"] == "custom_config"
+        assert proof["hardening_patch"]["method"] == "measured_timeout_replay"

@@ -29,8 +29,17 @@ class SLODecisionRequest(PolicyLabRequest):
     min_success_rate: float = Field(default=0.995, ge=0.5, le=1.0)
 
 
+class ServingConfig(BaseModel):
+    queue_capacity: int = Field(ge=1, le=4096)
+    batch_size: int = Field(ge=1, le=128)
+    batch_wait_ms: int = Field(ge=0, le=1000)
+    timeout_ms: int = Field(ge=50, le=10000)
+    primary_timeout_ms: int = Field(ge=20, le=10000)
+    breaker_threshold: int = Field(ge=1, le=20)
+
+
 class ServiceBoundaryRequest(SLODecisionRequest):
-    pass
+    config: ServingConfig | None = None
 
 
 class RuntimeStatus(BaseModel):

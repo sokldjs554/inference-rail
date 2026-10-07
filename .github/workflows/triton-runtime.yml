@@ -9,6 +9,8 @@ on:
       - "app/core/batcher.py"
       - "triton-models/**"
       - "scripts/triton_real_runtime_verify.py"
+      - "scripts/triton_service_boundary_runtime_verify.py"
+      - "scripts/triton_chaos_proxy.py"
       - "pyproject.toml"
 
 permissions:
@@ -63,6 +65,11 @@ jobs:
           GIT_SHA: ${{ github.sha }}
         run: python scripts/triton_real_runtime_verify.py
 
+      - name: Verify service boundary against real Triton path
+        env:
+          GIT_SHA: ${{ github.sha }}
+        run: python scripts/triton_service_boundary_runtime_verify.py
+
       - name: Save Triton runtime evidence
         if: always()
         run: |
@@ -72,6 +79,7 @@ jobs:
           curl -fsS http://127.0.0.1:18080/v2/models/text_classifier > docs/evidence/triton-runtime/model-metadata.json || true
           docker logs inference-rail-triton > docs/evidence/triton-runtime/triton-server.log 2>&1 || true
           cp triton-runtime-evidence.json docs/evidence/triton-runtime/summary.json 2>/dev/null || true
+          cp triton-service-boundary-runtime-evidence.json docs/evidence/triton-runtime/service-boundary-summary.json 2>/dev/null || true
 
       - uses: actions/upload-artifact@v4
         if: always()
