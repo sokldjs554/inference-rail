@@ -22,7 +22,6 @@ from app.core.batcher import DynamicBatcher, QueueFullError
 from app.core.circuit_breaker import CircuitBreaker
 from app.core.slo_governor import choose_serving_policy
 from app.flight_recorder import FlightRecorder
-from app.service_boundary import run_service_boundary_proof
 from app.metrics import (
     BATCH_SIZE,
     CIRCUIT_STATE,
@@ -40,9 +39,10 @@ from app.models import (
     PredictRequest,
     PredictResponse,
     RuntimeStatus,
-    SLODecisionRequest,
     ServiceBoundaryRequest,
+    SLODecisionRequest,
 )
+from app.service_boundary import run_service_boundary_proof
 from app.telemetry import configure_telemetry
 
 
