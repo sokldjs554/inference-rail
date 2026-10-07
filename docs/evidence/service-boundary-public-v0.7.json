@@ -1,0 +1,70 @@
+{
+  "verified_at": "2026-10-07T00:53:00Z",
+  "public_url": "https://inference-rail-demo.onrender.com",
+  "runtime_revision": "2e36b73bbfc67b4afa7642084f31623582fb464f",
+  "version": "0.7.0",
+  "input": {
+    "profile": "flash_crowd",
+    "target_p95_ms": 250,
+    "min_success_rate": 0.995
+  },
+  "selected_policy": "throughput_guard",
+  "workload_fingerprint": "11c1628c98148a1a",
+  "candidate_service_safe": false,
+  "scenarios": {
+    "healthy": {
+      "passed": true,
+      "p95_ms": 59.68,
+      "success_rate": 1,
+      "shed_requests": 0,
+      "fallback_requests": 0
+    },
+    "flash_crowd": {
+      "passed": true,
+      "p95_ms": 237.8,
+      "success_rate": 0.5,
+      "shed_requests": 32,
+      "fallback_requests": 0,
+      "note": "controlled shedding before timeout"
+    },
+    "slow_primary": {
+      "passed": false,
+      "p95_ms": 481.97,
+      "success_rate": 1,
+      "shed_requests": 0,
+      "fallback_requests": 24
+    },
+    "deadline_waste": {
+      "passed": true,
+      "expired_before_service": 1,
+      "wasted_model_calls": 0
+    },
+    "failure_recovery": {
+      "passed": true,
+      "fallback_requests": 4,
+      "open_state": "open",
+      "recovered_state": "closed",
+      "primary_calls_during_open": 0
+    }
+  },
+  "hardening_patch": {
+    "before_primary_timeout_ms": 460,
+    "after_primary_timeout_ms": 137,
+    "reason": "candidate primary timeout consumed too much of the end-to-end SLO"
+  },
+  "hardened_slow_primary": {
+    "passed": true,
+    "p95_ms": 159.38,
+    "success_rate": 1
+  },
+  "hardened_service_safe": true,
+  "service_safe_contract": {
+    "queue_capacity": 32,
+    "batch_size": 8,
+    "batch_wait_ms": 12,
+    "timeout_ms": 500,
+    "primary_timeout_ms": 137,
+    "breaker_threshold": 3
+  },
+  "scope_note": "deterministic synthetic workload; service-boundary behavior, not GPU model performance"
+}

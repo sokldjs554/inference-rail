@@ -45,6 +45,42 @@ InferenceRail은 그 **다음 경계**를 검증합니다.
 
 SLO-to-Config Compiler, Safe Operating Envelope, Request Flight Recorder, Shadow model comparison, Kubernetes/Triton/Jaeger 증거는 Deep Dive에서 확인할 수 있습니다.
 
+### 공개 v0.7 Service Boundary Proof 실측
+
+공개 Render 데모에서 `flash_crowd / p95 ≤ 250ms / success ≥ 99.5%` 기본 조건으로 실행했습니다.
+
+| Scenario | 후보 결과 | 핵심 측정 |
+|---|---|---|
+| Healthy | PASS | p95 59.68ms / success 100% |
+| Flash crowd | PASS | p95 237.80ms / shed 32 / timeout 0 |
+| **Slow primary** | **FAIL** | **p95 481.97ms / fallback 24** |
+| Deadline waste | PASS | expired-before-model 1 / wasted model call 0 |
+| Failure + recovery | PASS | breaker open → closed / fallback 4 |
+
+후보 `Throughput Guard`는 모델/정상 부하 기준으로는 좋은 설정이었지만 slow-primary 경계에서 service SLO를 위반했습니다.
+
+따라서 `PRIMARY_TIMEOUT_MS=460`을 **137ms**로 낮춰 같은 slow-primary 조건을 다시 실행했고:
+
+- p95 **159.38ms**
+- success **100%**
+- hardened result **SERVICE-SAFE**
+
+를 확인했습니다.
+
+최종 Service-Safe Contract:
+
+```text
+QUEUE_CAPACITY=32
+MAX_BATCH_SIZE=8
+MAX_BATCH_WAIT_MS=12
+REQUEST_TIMEOUT_MS=500
+PRIMARY_TIMEOUT_MS=137
+BREAKER_FAILURE_THRESHOLD=3
+```
+
+원본 측정 요약은 `docs/evidence/service-boundary-public-v0.7.json`에 보존합니다.
+
+
 ## 한눈에 보기
 
 ```text
