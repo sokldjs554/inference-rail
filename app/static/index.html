@@ -3,108 +3,91 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>InferenceRail · SLO-to-Config Compiler for ML Serving</title>
+<title>InferenceRail · Service Boundary Verifier</title>
 <style>
 :root{
-  --bg:#f5f5f2;--paper:#fbfbf8;--ink:#151515;--muted:#666762;--line:#c8c9c2;
-  --blue:#2f5bea;--blue-soft:#edf1ff;--green:#0e7a4a;--green-soft:#e8f5ee;
-  --red:#b42318;--red-soft:#fff0ed;--amber:#8a6100;--mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
+  --bg:#f4f4f0;--paper:#fbfbf7;--ink:#151515;--muted:#6b6b65;--line:#c8c8c0;
+  --blue:#2856d7;--blue-soft:#edf1ff;--green:#0d7a4a;--green-soft:#e8f5ed;
+  --red:#b42318;--red-soft:#fff0ed;--amber:#946200;--amber-soft:#fff7df;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
   font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif
 }
 *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--ink)}
-button,input{font:inherit}.page{max-width:1260px;margin:0 auto;padding:18px 24px 70px}
-.top{display:flex;align-items:center;justify-content:space-between;padding:0 0 14px;border-bottom:1px solid var(--ink);font:11px var(--mono)}
-.top .meta{display:flex;gap:18px;color:var(--muted)}.ready{color:var(--green)}
-.hero{display:grid;grid-template-columns:1.18fr .82fr;border-bottom:1px solid var(--ink)}
-.hero-copy{padding:54px 50px 46px 0}.eyebrow{font:700 11px var(--mono);letter-spacing:.12em;color:var(--blue)}
-h1{font-size:60px;line-height:1.01;letter-spacing:-.06em;margin:14px 0 20px;max-width:790px}
-.lead{font-size:17px;line-height:1.7;color:#33342f;max-width:760px;margin:0}
-.position{margin-top:20px;font:11px/1.65 var(--mono);color:var(--muted);max-width:760px}
-.position b{color:var(--ink)}.hero-actions{display:flex;gap:10px;margin-top:26px;flex-wrap:wrap}
-.primary{background:var(--ink);color:white;border:1px solid var(--ink);padding:13px 17px;font-weight:800;cursor:pointer}
+button,input{font:inherit}.page{max-width:1280px;margin:auto;padding:18px 24px 70px}
+.top{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--ink);padding-bottom:13px;font:11px var(--mono)}
+.top-meta{display:flex;gap:18px;color:var(--muted)}.ready{color:var(--green)}
+.hero{display:grid;grid-template-columns:1.08fr .92fr;border-bottom:1px solid var(--ink)}
+.hero-copy{padding:56px 46px 50px 0}.eyebrow{font:700 11px var(--mono);letter-spacing:.13em;color:var(--blue)}
+h1{font-size:58px;line-height:1.01;letter-spacing:-.06em;margin:14px 0 20px;max-width:760px}
+.lead{font-size:17px;line-height:1.72;color:#34342f;max-width:760px;margin:0}
+.line{margin-top:20px;padding-left:16px;border-left:3px solid var(--blue);font-size:12.5px;line-height:1.65;color:var(--muted);max-width:730px}
+.line b{color:var(--ink)}.hero-actions{display:flex;gap:10px;margin-top:26px;flex-wrap:wrap}
+.primary{background:var(--ink);color:#fff;border:1px solid var(--ink);padding:13px 17px;font-weight:800;cursor:pointer}
 .primary:hover{background:var(--blue);border-color:var(--blue)}.secondary{background:transparent;border:1px solid var(--ink);padding:13px 17px;font-weight:750;cursor:pointer}
-.hero-output{border-left:1px solid var(--ink);padding:36px 0 36px 36px;display:flex;align-items:center}
-.contract-preview{width:100%;border:1px solid var(--ink);background:var(--paper)}
-.contract-preview .cap{display:flex;justify-content:space-between;padding:11px 13px;border-bottom:1px solid var(--ink);font:10px var(--mono)}
-.contract-preview .body{padding:18px}.contract-preview h2{font-size:19px;margin:0 0 7px;letter-spacing:-.03em}
-.contract-preview p{font-size:12px;line-height:1.6;color:var(--muted);margin:0}
-.preview-row{display:grid;grid-template-columns:1fr 1fr;margin-top:17px;border-top:1px solid var(--line)}
-.preview-cell{padding:12px 0;border-bottom:1px solid var(--line)}.preview-cell:nth-child(odd){border-right:1px solid var(--line);padding-right:12px}.preview-cell:nth-child(even){padding-left:12px}
-.preview-cell span{display:block;font:9px var(--mono);color:var(--muted);letter-spacing:.08em}.preview-cell b{display:block;font-size:13px;margin-top:5px}
-.signature{margin-top:14px;padding:11px;background:#151515;color:#f7f7f2;font:10px/1.6 var(--mono)}
+.hero-map{border-left:1px solid var(--ink);padding:34px 0 34px 34px;display:flex;align-items:center}
+.boundary-map{width:100%;border:1px solid var(--ink);background:var(--paper)}
+.map-head{padding:11px 13px;border-bottom:1px solid var(--ink);display:flex;justify-content:space-between;font:10px var(--mono)}
+.layer{display:grid;grid-template-columns:125px 1fr;border-bottom:1px solid var(--line)}
+.layer:last-child{border-bottom:0}.layer-label{padding:16px 13px;border-right:1px solid var(--line);font:700 10px var(--mono)}
+.layer-body{padding:14px}.layer-body b{font-size:13px;display:block}.layer-body p{font:10px/1.6 var(--mono);color:var(--muted);margin:7px 0 0}
+.layer.model{background:#f6f6f3}.layer.service{background:var(--blue-soft)}.layer.proof{background:#151515;color:#fff}.layer.proof .layer-body p{color:#cfcfc7}.layer.proof .layer-label{border-color:#555}
+.bridge{padding:9px 13px;border-bottom:1px solid var(--line);font:10px var(--mono);color:var(--blue);background:white}
 .metrics{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--ink)}
 .metric{padding:20px 18px 20px 0;border-right:1px solid var(--line)}.metric:not(:first-child){padding-left:18px}.metric:last-child{border-right:0}
 .metric span{font:9px var(--mono);letter-spacing:.1em;color:var(--muted)}.metric b{display:block;font-size:28px;letter-spacing:-.04em;margin-top:6px}.metric small{display:block;font-size:10.5px;color:var(--muted);margin-top:5px}
-.section{padding-top:50px}.section-head{display:grid;grid-template-columns:92px 1fr;gap:18px;margin-bottom:22px}.section-no{font:700 10px var(--mono);color:var(--blue);padding-top:7px}
-.section-head h2{font-size:36px;letter-spacing:-.045em;margin:0}.section-head p{max-width:780px;margin:8px 0 0;font-size:13px;line-height:1.65;color:var(--muted)}
-.compiler{display:grid;grid-template-columns:320px 1fr;border:1px solid var(--ink);background:var(--paper)}
-.controls{padding:22px;border-right:1px solid var(--ink)}.label{font:700 9px var(--mono);letter-spacing:.11em;color:var(--muted);margin-bottom:8px}
+.section{padding-top:50px}.section-head{display:grid;grid-template-columns:94px 1fr;gap:18px;margin-bottom:22px}.section-no{font:700 10px var(--mono);color:var(--blue);padding-top:7px}
+.section-head h2{font-size:36px;letter-spacing:-.045em;margin:0}.section-head p{max-width:800px;margin:8px 0 0;font-size:13px;line-height:1.65;color:var(--muted)}
+.verifier{display:grid;grid-template-columns:310px 1fr;border:1px solid var(--ink);background:var(--paper)}
+.controls{padding:22px;border-right:1px solid var(--ink)}.label{font:700 9px var(--mono);letter-spacing:.1em;color:var(--muted);margin-bottom:8px}
 .profiles{display:grid;margin-bottom:18px}.profiles button{border:1px solid var(--line);border-bottom:0;background:white;padding:10px 11px;text-align:left;font-size:11.5px;cursor:pointer}
-.profiles button:last-child{border-bottom:1px solid var(--line)}.profiles button.active{background:var(--blue);border-color:var(--blue);color:white}
-.field{margin:13px 0}.field input{width:100%;border:1px solid var(--line);background:white;padding:10px}
-.run{width:100%;margin-top:10px;background:var(--blue);color:white;border:1px solid var(--blue);padding:12px;font-weight:800;cursor:pointer}.run:disabled{opacity:.55;cursor:wait}
-.note{font-size:10.5px;line-height:1.55;color:var(--muted);margin:11px 0 0}.receipt{padding:24px;min-width:0}
-.empty{min-height:430px;display:grid;place-items:center;border:1px dashed var(--line);color:var(--muted);text-align:center;padding:28px}
-.receipt-head{display:flex;justify-content:space-between;gap:20px;padding-bottom:17px;border-bottom:1px solid var(--line)}
-.receipt-id{font:9.5px var(--mono);color:var(--muted)}.decision{font-size:27px;font-weight:850;letter-spacing:-.04em;margin-top:5px}
-.pass{color:var(--green)}.best{color:var(--amber)}.why{font-size:11.5px;line-height:1.6;color:var(--muted);margin-top:7px;max-width:650px}
-.badge{font:700 9px var(--mono);padding:5px 7px;border:1px solid currentColor;white-space:nowrap}
-.summary-grid{display:grid;grid-template-columns:repeat(3,1fr);margin-top:18px;border:1px solid var(--line)}
-.summary-cell{padding:13px;border-right:1px solid var(--line)}.summary-cell:last-child{border-right:0}.summary-cell span{font:9px var(--mono);color:var(--muted)}.summary-cell b{display:block;font-size:20px;margin-top:5px}
-.envelope{margin-top:22px}.subhead{display:flex;justify-content:space-between;gap:14px;align-items:end;margin-bottom:10px}.subhead h3{margin:0;font-size:14px}.subhead p{margin:0;font:9.5px var(--mono);color:var(--muted)}
-.envelope-track{display:grid;grid-template-columns:repeat(6,1fr);border:1px solid var(--ink)}
-.point{padding:13px 9px;min-height:112px;border-right:1px solid var(--line);background:white}.point:last-child{border-right:0}.point.safe{background:var(--green-soft)}.point.unsafe{background:var(--red-soft)}
-.point .c{font:700 16px var(--mono)}.point .state{font:700 9px var(--mono);margin-top:4px}.point.safe .state{color:var(--green)}.point.unsafe .state{color:var(--red)}
-.point .p{font:9.5px/1.55 var(--mono);color:var(--muted);margin-top:9px}
-.compare{overflow:auto;margin-top:22px}table{width:100%;border-collapse:collapse;min-width:720px}th,td{padding:9px;text-align:right;border-bottom:1px solid var(--line);font-size:10.5px}
-th:first-child,td:first-child{text-align:left}th{font:700 8.5px var(--mono);letter-spacing:.06em;color:var(--muted)}tr.selected{background:var(--blue-soft)}
-.contract-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:22px}.panel{border-top:1px solid var(--ink);padding-top:12px}.panel h3{font-size:13px;margin:0 0 9px}
-.code{background:#151515;color:#f4f4ef;padding:13px;white-space:pre-wrap;font:10.5px/1.65 var(--mono);min-height:170px}
-.copy{margin-top:8px;border:1px solid var(--ink);background:transparent;padding:7px 9px;font:700 9px var(--mono);cursor:pointer}.reason{font-size:10.5px;line-height:1.55;padding:8px 0;border-bottom:1px solid var(--line)}
-.explain{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--ink);border-bottom:1px solid var(--ink)}
-.explain div{padding:20px 18px 20px 0;border-right:1px solid var(--line)}.explain div:not(:first-child){padding-left:18px}.explain div:last-child{border-right:0}
-.explain span{font:700 9px var(--mono);color:var(--blue)}.explain b{display:block;font-size:14px;margin:8px 0 6px}.explain p{font-size:11px;color:var(--muted);line-height:1.55;margin:0}
+.profiles button:last-child{border-bottom:1px solid var(--line)}.profiles button.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+.field{margin:13px 0}.field input{width:100%;border:1px solid var(--line);background:#fff;padding:10px}
+.run{width:100%;margin-top:10px;background:var(--blue);color:#fff;border:1px solid var(--blue);padding:12px;font-weight:800;cursor:pointer}.run:disabled{opacity:.55;cursor:wait}
+.note{font-size:10.5px;line-height:1.55;color:var(--muted);margin:11px 0 0}.proof-area{padding:24px;min-width:0}
+.empty{min-height:430px;border:1px dashed var(--line);display:grid;place-items:center;text-align:center;color:var(--muted);padding:30px}
+.verdict{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line)}
+.verdict-cell{padding:15px}.verdict-cell:first-child{border-right:1px solid var(--line)}
+.verdict-cell span{font:9px var(--mono);color:var(--muted)}.verdict-cell b{display:block;font-size:21px;margin-top:6px}.unsafe{background:var(--red-soft);color:var(--red)}.safe{background:var(--green-soft);color:var(--green)}
+.scenarios{margin-top:20px}.scenarios h3,.patch h3,.contract h3{font-size:13px;margin:0 0 9px}.scenario{display:grid;grid-template-columns:150px 82px 1fr;gap:12px;align-items:start;padding:11px 0;border-top:1px solid var(--line)}
+.scenario:last-child{border-bottom:1px solid var(--line)}.scenario-name{font-weight:800;font-size:11.5px}.state{font:700 9px var(--mono);padding:4px 6px;border:1px solid currentColor;text-align:center}
+.state.pass{color:var(--green)}.state.fail{color:var(--red)}.scenario-detail{font:10.5px/1.6 var(--mono);color:var(--muted)}
+.patch{margin-top:20px;padding:14px;border:1px solid var(--ink);background:var(--amber-soft)}.patch-line{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;font:700 13px var(--mono)}
+.patch-line div{padding:11px;background:white;border:1px solid var(--line)}.patch-line .arrow{text-align:center;background:transparent;border:0}.patch p{font-size:11px;color:var(--muted);line-height:1.55}
+.contract{margin-top:20px}.code{background:#151515;color:#f2f2ec;padding:13px;font:10.5px/1.65 var(--mono);white-space:pre-wrap;min-height:170px}.copy{margin-top:8px;border:1px solid var(--ink);background:transparent;padding:7px 9px;cursor:pointer;font:700 9px var(--mono)}
+.compare{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--ink);border-bottom:1px solid var(--ink)}
+.compare-col{padding:20px 20px 20px 0}.compare-col+ .compare-col{padding-left:20px;border-left:1px solid var(--line)}
+.compare-col .cap{font:700 10px var(--mono);color:var(--blue)}.compare-col h3{font-size:18px;margin:8px 0}.compare-col p{font-size:11.5px;color:var(--muted);line-height:1.65;margin:0}.compare-col ul{padding-left:17px;margin:13px 0 0}.compare-col li{font-size:11px;margin:6px 0;color:#3e3e38}
 details{border-top:1px solid var(--line)}details:last-child{border-bottom:1px solid var(--line)}summary{padding:16px 0;cursor:pointer;list-style:none;font-weight:800;display:flex;justify-content:space-between;gap:12px}summary::-webkit-details-marker{display:none}summary small{font-weight:400;color:var(--muted)}
 .detail{padding:0 0 18px}.devgrid{display:grid;grid-template-columns:1fr 1fr;gap:15px}.tool{border:1px solid var(--line);background:var(--paper);padding:14px}.tool h4{margin:0 0 6px;font-size:12px}.tool p{font-size:10.5px;color:var(--muted);line-height:1.5}.tool button{border:1px solid var(--ink);background:transparent;padding:7px 9px;font:700 9px var(--mono);cursor:pointer}
 .result{margin-top:9px;background:white;border:1px solid var(--line);padding:10px;font:10px/1.6 var(--mono);white-space:pre-wrap;min-height:70px}
 .proofs{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--ink)}.proof{padding:16px;border-right:1px solid var(--line)}.proof:last-child{border-right:0}.proof span{font:9px var(--mono);color:var(--muted)}.proof b{display:block;font-size:18px;margin-top:6px}.proof small{font-size:10px;color:var(--muted);line-height:1.45;display:block;margin-top:5px}
 .footer{margin-top:50px;border-top:1px solid var(--ink);padding-top:13px;display:flex;justify-content:space-between;gap:15px;font:9px var(--mono);color:var(--muted)}
-@media(max-width:900px){h1{font-size:47px}.hero{grid-template-columns:1fr}.hero-copy{padding-right:0}.hero-output{border-left:0;border-top:1px solid var(--ink);padding:28px 0}.compiler{grid-template-columns:1fr}.controls{border-right:0;border-bottom:1px solid var(--ink)}.metrics{grid-template-columns:repeat(2,1fr)}.contract-grid,.devgrid{grid-template-columns:1fr}.proofs{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:620px){.page{padding:12px 14px 40px}.top .meta{display:none}h1{font-size:39px}.hero-copy{padding:38px 0}.metrics{grid-template-columns:1fr}.metric,.metric:not(:first-child){padding:14px 0;border-right:0;border-bottom:1px solid var(--line)}.section-head{grid-template-columns:1fr}.section-no{padding:0}.summary-grid{grid-template-columns:1fr}.summary-cell{border-right:0;border-bottom:1px solid var(--line)}.envelope-track{grid-template-columns:repeat(2,1fr)}.point{border-bottom:1px solid var(--line)}.explain{grid-template-columns:1fr}.explain div,.explain div:not(:first-child){padding:15px 0;border-right:0;border-bottom:1px solid var(--line)}.proofs{grid-template-columns:1fr}.proof{border-right:0;border-bottom:1px solid var(--line)}}
+@media(max-width:900px){h1{font-size:46px}.hero{grid-template-columns:1fr}.hero-copy{padding-right:0}.hero-map{border-left:0;border-top:1px solid var(--ink);padding:28px 0}.metrics{grid-template-columns:repeat(2,1fr)}.verifier{grid-template-columns:1fr}.controls{border-right:0;border-bottom:1px solid var(--ink)}.devgrid{grid-template-columns:1fr}}
+@media(max-width:620px){.page{padding:12px 14px 40px}.top-meta{display:none}h1{font-size:38px}.hero-copy{padding:38px 0}.metrics{grid-template-columns:1fr}.metric,.metric:not(:first-child){padding:14px 0;border-right:0;border-bottom:1px solid var(--line)}.section-head{grid-template-columns:1fr}.section-no{padding:0}.verdict,.compare{grid-template-columns:1fr}.verdict-cell:first-child{border-right:0;border-bottom:1px solid var(--line)}.scenario{grid-template-columns:1fr 72px}.scenario-detail{grid-column:1/-1}.patch-line{grid-template-columns:1fr}.compare-col,.compare-col+ .compare-col{padding:16px 0;border-left:0;border-bottom:1px solid var(--line)}.proofs{grid-template-columns:1fr}.proof{border-right:0;border-bottom:1px solid var(--line)}}
 </style>
 </head>
 <body>
 <div class="page">
-<header class="top">
-  <div><b>INFERENCERAIL</b> / SLO-TO-CONFIG COMPILER</div>
-  <div class="meta"><span id="env">ENV —</span><span id="rev">REV —</span><span id="health" class="ready">● READY</span></div>
-</header>
+<header class="top"><div><b>INFERENCERAIL</b> / SERVICE BOUNDARY VERIFIER</div><div class="top-meta"><span id="env">ENV —</span><span id="rev">REV —</span><span id="health" class="ready">● READY</span></div></header>
 
 <section class="hero">
   <div class="hero-copy">
-    <div class="eyebrow">FOR ML BACKEND / PLATFORM ENGINEERS</div>
-    <h1>SLO를 입력하면,<br>버틸 수 있는 한계와<br>배포 설정을 실측합니다.</h1>
-    <p class="lead"><b>InferenceRail</b>은 Triton 앞단에서 동작하는 ML inference gateway입니다. 같은 workload를 실제 serving 코드 경로에 replay해 p95·성공률 SLO를 지키는 정책을 고르고, <b>어디까지 안전한지 concurrency를 sweep한 뒤 Deployment Contract를 발행</b>합니다.</p>
-    <p class="position"><b>왜 필요한가?</b> batch size·queue·timeout을 감으로 정하면 평상시에는 멀쩡해 보여도 flash crowd에서 숨은 queue와 tail latency가 폭발합니다. InferenceRail은 선택 자체를 실행 증거로 남깁니다.</p>
+    <div class="eyebrow">MODEL-SAFE ≠ SERVICE-SAFE</div>
+    <h1>모델이 빠르다고<br>서비스가 안전한 건 아닙니다.</h1>
+    <p class="lead"><b>InferenceRail</b>은 모델 runtime의 batch/concurrency 최적화를 다시 만드는 도구가 아닙니다. 그 다음 단계인 <b>client deadline, queue saturation, flash crowd, slow primary, fallback, recovery</b>까지 실제 요청 경로로 공격해 서비스가 SLO를 지키는지 검증합니다.</p>
+    <div class="line"><b>강점:</b> 후보 config가 모델 레벨에서 좋아 보여도 서비스 경계에서 깨지면 그 실패를 그대로 보여주고, 어떤 timeout·admission 설정을 바꿔야 하는지 다시 검증해 <b>Service-Safe Contract</b>를 발행합니다.</div>
     <div class="hero-actions">
-      <button class="primary" onclick="runFromHero()">내 SLO로 Deployment Contract 만들기</button>
-      <button class="secondary" onclick="document.getElementById('how').scrollIntoView()">30초 구조 보기</button>
+      <button class="primary" onclick="runFromHero()">서비스 경계 검증 실행</button>
+      <button class="secondary" onclick="document.getElementById('difference').scrollIntoView()">왜 Model Analyzer와 다른가</button>
     </div>
   </div>
-  <aside class="hero-output">
-    <div class="contract-preview">
-      <div class="cap"><span>OUTPUT / DEPLOYMENT CONTRACT</span><span>MEASURED, NOT GUESSED</span></div>
-      <div class="body">
-        <h2>SLO → serving policy → safe boundary</h2>
-        <p>한 번 실행하면 아래 다섯 가지가 같이 나옵니다. 단순 모니터링 화면이 아니라 배포 전에 선택을 검증하는 도구입니다.</p>
-        <div class="preview-row">
-          <div class="preview-cell"><span>SELECTED POLICY</span><b>실측으로 선택</b></div>
-          <div class="preview-cell"><span>MAX SAFE CONCURRENCY</span><b>concurrency sweep</b></div>
-          <div class="preview-cell"><span>FIRST UNSAFE POINT</span><b>SLO breach 지점</b></div>
-          <div class="preview-cell"><span>RUNTIME CONFIG</span><b>batch · queue · timeout</b></div>
-        </div>
-        <div class="signature">workload fingerprint + rejected-policy reasons + backend calls / 100 success</div>
-      </div>
+  <aside class="hero-map">
+    <div class="boundary-map">
+      <div class="map-head"><span>OPTIMIZATION BOUNDARY</span><span>WHERE INFERENCERAIL STARTS</span></div>
+      <div class="layer model"><div class="layer-label">MODEL LEVEL</div><div class="layer-body"><b>Model runtime profiler</b><p>batch · instance count · request concurrency · latency · throughput · GPU memory</p></div></div>
+      <div class="bridge">↓ 좋은 모델 config가 곧 안전한 서비스 config라는 보장은 없음</div>
+      <div class="layer service"><div class="layer-label">SERVICE LEVEL</div><div class="layer-body"><b>InferenceRail boundary proof</b><p>deadline · admission · queue · load shedding · slow primary · circuit breaker · fallback · recovery</p></div></div>
+      <div class="layer proof"><div class="layer-label">OUTPUT</div><div class="layer-body"><b>Service Boundary Proof + Hardened Contract</b><p>어디서 깨졌는지 · 어떤 값을 바꿨는지 · 다시 통과했는지</p></div></div>
     </div>
   </aside>
 </section>
@@ -113,61 +96,64 @@ details{border-top:1px solid var(--line)}details:last-child{border-bottom:1px so
   <div class="metric"><span>GATEWAY THROUGHPUT</span><b>5.20×</b><small>batch 1 → 8 반복 검증</small></div>
   <div class="metric"><span>P95 LATENCY</span><b>−81%</b><small>996ms → 약 190ms</small></div>
   <div class="metric"><span>REAL K8S SCALE-OUT</span><b>2 → 6</b><small>Metrics Server + HPA</small></div>
-  <div class="metric"><span>REAL TRITON</span><b>2.73.0</b><small>gateway batch 8 · fallback 0</small></div>
+  <div class="metric"><span>REAL TRITON</span><b>2.73.0</b><small>gateway → Triton 실제 runtime</small></div>
 </section>
 
-<section class="section" id="compiler">
-  <div class="section-head">
-    <div class="section-no">01 / CORE</div>
-    <div><h2>SLO Compiler — 결과가 배포 설정이 됩니다.</h2><p>동일한 요청 수·동시성·장애 스케줄을 세 정책에 counterfactual replay하고, SLO를 통과한 후보 중 backend 호출 비용이 가장 낮은 정책을 선택합니다. 선택 후에는 그 정책의 concurrency 4→40 구간을 다시 실제 sweep합니다.</p></div>
-  </div>
-  <div class="compiler">
+<section class="section" id="verifier">
+  <div class="section-head"><div class="section-no">01 / WEAPON</div><div><h2>Service Boundary Proof — 후보 설정을 실제 실패 경계에 넣습니다.</h2><p>먼저 동일 workload replay로 후보 serving policy를 고른 뒤, 그 config를 healthy / flash crowd / slow primary / deadline waste / hard failure & recovery 조건에 넣습니다. 하나라도 실패하면 서비스 안전으로 간주하지 않습니다.</p></div></div>
+  <div class="verifier">
     <aside class="controls">
       <div class="label">WORKLOAD</div>
       <div class="profiles">
         <button data-profile="steady" onclick="chooseProfile('steady')">STEADY · 평상시</button>
         <button data-profile="flash_crowd" class="active" onclick="chooseProfile('flash_crowd')">FLASH CROWD · 순간 폭주</button>
-        <button data-profile="degraded_primary" onclick="chooseProfile('degraded_primary')">DEGRADED PRIMARY · 모델 불안정</button>
+        <button data-profile="degraded_primary" onclick="chooseProfile('degraded_primary')">DEGRADED PRIMARY · 불안정</button>
       </div>
       <div class="field"><div class="label">TARGET P95 (ms)</div><input id="targetP95" type="number" value="250" min="50" max="2000"></div>
       <div class="field"><div class="label">MIN SUCCESS RATE (%)</div><input id="targetSuccess" type="number" value="99.5" min="50" max="100" step="0.1"></div>
-      <button id="runBtn" class="run" onclick="runCompiler()">실측 후 Deployment Contract 발행</button>
-      <p class="note">공개 데모는 shared serving runtime을 변경하지 않습니다. 실제 DynamicBatcher + CircuitBreaker + ResilientBackend를 격리 복제해 replay합니다.</p>
+      <button class="run" id="runBtn" onclick="runBoundary()">후보 선택 → 서비스 경계 공격 → 하드닝 재검증</button>
+      <p class="note">공개 데모는 deterministic synthetic workload입니다. Model Analyzer 결과를 실제로 가져왔다고 주장하지 않으며, model-runtime 최적화와 service-level 검증의 책임 경계를 분리해 보여줍니다.</p>
     </aside>
-    <main class="receipt" id="receipt"><div class="empty">SLO를 입력하고 실행하면<br><b>Decision Receipt + Safe Operating Envelope + Deployment Contract</b>가 생성됩니다.</div></main>
+    <main class="proof-area" id="boundaryResult"><div class="empty">실행하면 후보 config가 서비스 경계에서<br><b>왜 실패하는지와 어떤 patch로 회복하는지</b>를 확인할 수 있습니다.</div></main>
   </div>
 </section>
 
-<section class="section" id="how">
-  <div class="section-head"><div class="section-no">02 / WHY</div><div><h2>남들과 다른 지점은 “서빙”이 아니라 “선택을 검증하는 방식”입니다.</h2><p>Triton/Kubernetes를 썼다는 사실 자체는 차별점이 아닙니다. 이 프로젝트는 배포 전에 어떤 serving policy가 목표 SLO와 compute pressure를 동시에 만족하는지 재현 가능한 증거로 결정합니다.</p></div></div>
-  <div class="explain">
-    <div><span>1 / COUNTERFACTUAL</span><b>같은 workload를 세 정책에 replay</b><p>Latency / Throughput / Availability 정책을 동일 조건의 실제 코드 경로에서 비교합니다.</p></div>
-    <div><span>2 / SAFE ENVELOPE</span><b>concurrency를 실제로 올려 경계를 찾음</b><p>마지막 SLO 통과 지점과 첫 실패 지점을 측정해 “어디까지 버티는지”를 숫자로 남깁니다.</p></div>
-    <div><span>3 / CONTRACT</span><b>결론을 복사 가능한 config로 발행</b><p>batch·queue·timeout·breaker 설정과 scale/shed 경계를 한 Decision Receipt에 묶습니다.</p></div>
+<section class="section" id="difference">
+  <div class="section-head"><div class="section-no">02 / BOUNDARY</div><div><h2>기존 모델 최적화 도구를 대체하지 않습니다.</h2><p>차별점은 새로운 batch search가 아니라, 모델 runtime 바깥의 요청 생명주기를 검증하는 데 있습니다. 기존 도구가 잘하는 영역은 그대로 인정하고 그 다음 실패 경계를 맡습니다.</p></div></div>
+  <div class="compare">
+    <div class="compare-col"><div class="cap">MODEL-RUNTIME OPTIMIZATION</div><h3>예: Triton Model Analyzer</h3><p>하드웨어에서 모델 configuration의 latency/throughput trade-off를 찾는 영역.</p><ul><li>max batch size</li><li>instance group count</li><li>request concurrency / rate</li><li>latency / throughput constraints</li><li>GPU memory / compute metrics</li></ul></div>
+    <div class="compare-col"><div class="cap">SERVICE-RELIABILITY VALIDATION</div><h3>InferenceRail</h3><p>그 configuration이 실제 request lifecycle에서도 안전한지 검증하는 영역.</p><ul><li>client deadline waste</li><li>bounded queue / fast shedding</li><li>slow-but-alive primary</li><li>circuit breaker / fallback capacity</li><li>recovery probe</li><li>request-level evidence</li></ul></div>
   </div>
 </section>
 
-<section class="section" id="evidence">
-  <div class="section-head"><div class="section-no">03 / DEEP DIVE</div><div><h2>개발자는 더 깊게 들어갈 수 있습니다.</h2><p>첫 화면의 이해를 방해하던 도구들은 여기로 내렸습니다. 필요할 때 request lifecycle, shadow model, 실제 인프라 검증을 확인할 수 있습니다.</p></div></div>
-  <details><summary>Request Flight Recorder <small>실제 요청 timestamp</small></summary><div class="detail"><div class="devgrid"><div class="tool"><h4>Trace one request</h4><p>received → queue → batch → backend result를 실제 timestamp로 수집합니다.</p><button onclick="traceOne()">TRACE</button></div><div class="tool"><h4>Result</h4><div id="flightResult" class="result">아직 실행하지 않았습니다.</div></div></div></div></details>
-  <details><summary>Shadow model gate <small>live response는 stable 유지</small></summary><div class="detail"><div class="devgrid"><div class="tool"><h4>Mirror candidate</h4><p>candidate가 실제 사용자 응답을 바꾸지 않는 상태로 label/score/latency를 비교합니다.</p><button onclick="runShadow()">MIRROR</button></div><div class="tool"><h4>Gate</h4><div id="shadowResult" class="result">아직 실행하지 않았습니다.</div></div></div></div></details>
-  <details><summary>Runtime proof <small>Kubernetes · KEDA · Triton · Jaeger</small></summary><div class="detail"><div class="proofs"><div class="proof"><span>HPA</span><b>2 → 6</b><small>kind 1.37 실제 scale-out</small></div><div class="proof"><span>KEDA</span><b>2 → 3</b><small>queue metric 실제 scale-out</small></div><div class="proof"><span>TRITON</span><b>2.73.0</b><small>실제 NVIDIA Triton Server</small></div><div class="proof"><span>OTEL</span><b>TRACE OK</b><small>Jaeger trace 실제 조회</small></div></div></div></details>
+<section class="section">
+  <div class="section-head"><div class="section-no">03 / DEEP DIVE</div><div><h2>개발자가 원하면 증거까지 내려갑니다.</h2><p>첫 화면은 한 가지 메시지만 전달하고, 실제 구현·trace·infra proof는 여기에서 확인하도록 분리했습니다.</p></div></div>
+  <details><summary>SLO-to-Config Compiler <small>candidate policy selection + safe concurrency sweep</small></summary><div class="detail"><div class="tool"><h4>별도 도구</h4><p>동일 workload를 세 policy에 replay하고 SLO 기준으로 후보 config와 Safe Operating Envelope를 계산합니다. 이 결과는 Service Boundary Proof의 입력 후보가 됩니다.</p><button onclick="runSloCompiler()">RUN COMPILER</button><div id="sloResult" class="result">아직 실행하지 않았습니다.</div></div></div></details>
+  <details><summary>Request Flight Recorder <small>received → queue → batch → backend</small></summary><div class="detail"><div class="devgrid"><div class="tool"><h4>Trace one request</h4><p>실제 request lifecycle timestamp를 수집합니다.</p><button onclick="traceOne()">TRACE</button></div><div class="tool"><h4>Result</h4><div id="flightResult" class="result">아직 실행하지 않았습니다.</div></div></div></div></details>
+  <details><summary>Shadow model gate <small>live response는 stable 유지</small></summary><div class="detail"><div class="devgrid"><div class="tool"><h4>Mirror candidate</h4><p>candidate가 사용자 응답을 바꾸지 않은 상태로 결과 차이를 관찰합니다.</p><button onclick="runShadow()">MIRROR</button></div><div class="tool"><h4>Gate</h4><div id="shadowResult" class="result">아직 실행하지 않았습니다.</div></div></div></div></details>
+  <details><summary>Runtime proof <small>Kubernetes · KEDA · Triton · Jaeger</small></summary><div class="detail"><div class="proofs"><div class="proof"><span>HPA</span><b>2 → 6</b><small>kind 1.37 실제 scale-out</small></div><div class="proof"><span>KEDA</span><b>2 → 3</b><small>Prometheus queue metric</small></div><div class="proof"><span>TRITON</span><b>2.73.0</b><small>실제 NVIDIA Triton Server</small></div><div class="proof"><span>OTEL</span><b>TRACE OK</b><small>Jaeger inference trace</small></div></div></div></details>
 </section>
 
-<footer class="footer"><span>INFERENCERAIL · v0.6 · SLO-TO-CONFIG COMPILER</span><span>SYNTHETIC WORKLOAD · NO REAL FINANCIAL DECISION</span></footer>
+<footer class="footer"><span>INFERENCERAIL · v0.7 · SERVICE BOUNDARY VERIFIER</span><span>SYNTHETIC WORKLOAD · NO REAL FINANCIAL DECISION</span></footer>
 </div>
 
 <script>
-let selectedProfile='flash_crowd';
-let currentReceipt=null;
+let selectedProfile='flash_crowd';let lastContract=null;
 const $=id=>document.getElementById(id);
 function esc(v){return String(v).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
 async function api(url,options={}){const r=await fetch(url,options);let b={};try{b=await r.json()}catch(e){}if(!r.ok)throw new Error(b.detail||('HTTP '+r.status));return b}
 function chooseProfile(name){selectedProfile=name;document.querySelectorAll('[data-profile]').forEach(b=>b.classList.toggle('active',b.dataset.profile===name))}
-function runFromHero(){document.getElementById('compiler').scrollIntoView({behavior:'smooth'});setTimeout(runCompiler,450)}
+function runFromHero(){document.getElementById('verifier').scrollIntoView({behavior:'smooth'});setTimeout(runBoundary,450)}
 function pct(v){return (v*100).toFixed(v===1?0:1)+'%'}
 function policyLabel(v){return {latency_guard:'Latency Guard',throughput_guard:'Throughput Guard',availability_guard:'Availability Guard'}[v]||v}
-function configText(c){return [
+function contractText(body){const p=body.service_boundary_proof,c=p.service_safe_contract;return [
+  '# InferenceRail Service-Safe Contract',
+  '# workload='+body.workload_fingerprint,
+  '# candidate_policy='+body.selected_policy,
+  '# candidate_service_safe='+p.candidate_service_safe,
+  '# hardened_service_safe='+p.hardened_service_safe,
+  '# primary_timeout_patch='+p.hardening_patch.before_primary_timeout_ms+' -> '+p.hardening_patch.after_primary_timeout_ms+'ms',
+  '',
   'QUEUE_CAPACITY='+c.queue_capacity,
   'MAX_BATCH_SIZE='+c.batch_size,
   'MAX_BATCH_WAIT_MS='+c.batch_wait_ms,
@@ -175,39 +161,47 @@ function configText(c){return [
   'PRIMARY_TIMEOUT_MS='+c.primary_timeout_ms,
   'BREAKER_FAILURE_THRESHOLD='+c.breaker_threshold
 ].join('\n')}
-function contractText(r){const c=r.deployment_contract;return [
-  '# InferenceRail Deployment Contract',
-  '# workload='+r.workload_fingerprint,
-  '# max_verified_concurrency='+(c.max_verified_concurrency??'none'),
-  '# first_unsafe_concurrency='+(c.first_unsafe_concurrency??'not_observed<=40'),
-  '# scale_before_concurrency='+(c.scale_before_concurrency??'none'),
-  '# evidence='+c.evidence_basis,
-  '',
-  configText(c.runtime_config)
-].join('\n')}
-async function copyContract(){if(!currentReceipt)return;await navigator.clipboard.writeText(contractText(currentReceipt));$('copyBtn').textContent='COPIED'}
-async function runCompiler(){
-  const btn=$('runBtn');btn.disabled=true;btn.textContent='REPLAY + SWEEP 실행 중…';$('receipt').innerHTML='<div class="empty">3개 정책 replay 후 선택 정책의 concurrency 4→40을 실측 중…</div>';
+async function copyContract(){if(!lastContract)return;await navigator.clipboard.writeText(contractText(lastContract));$('copyBtn').textContent='COPIED'}
+function scenarioRow(name,label,x){
+  const details=[];
+  if(x.p95_ms!==undefined)details.push('p95 '+x.p95_ms+'ms');
+  if(x.success_rate!==undefined)details.push('success '+pct(x.success_rate));
+  if(x.shed_requests!==undefined)details.push('shed '+x.shed_requests);
+  if(x.fallback_requests!==undefined)details.push('fallback '+x.fallback_requests);
+  if(x.expired_before_service!==undefined)details.push('expired-before-model '+x.expired_before_service);
+  if(x.wasted_model_calls!==undefined)details.push('wasted-model-calls '+x.wasted_model_calls);
+  if(x.open_state!==undefined)details.push('breaker '+x.open_state+' → '+x.recovered_state);
+  return '<div class="scenario"><div class="scenario-name">'+label+'</div><div class="state '+(x.passed?'pass':'fail')+'">'+(x.passed?'PASS':'FAIL')+'</div><div class="scenario-detail">'+details.join(' · ')+'<br>'+esc(x.expected_control||'')+'</div></div>';
+}
+async function runBoundary(){
+  const btn=$('runBtn');btn.disabled=true;btn.textContent='SERVICE BOUNDARY 공격 중…';$('boundaryResult').innerHTML='<div class="empty">후보 policy를 고른 뒤 request lifecycle 경계를 실제로 재현하고 있습니다…</div>';
   try{
-    const body=await api('/v1/slo-decision',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({
+    const body=await api('/v1/service-boundary-proof',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({
       profile:selectedProfile,target_p95_ms:Number($('targetP95').value),min_success_rate:Number($('targetSuccess').value)/100
     })});
-    renderReceipt(body.decision_receipt);
-  }catch(e){$('receipt').innerHTML='<div class="empty" style="color:var(--red)">실행 실패: '+esc(e.message)+'</div>'}
-  finally{btn.disabled=false;btn.textContent='실측 후 Deployment Contract 발행'}
+    lastContract=body;renderBoundary(body);
+  }catch(e){$('boundaryResult').innerHTML='<div class="empty" style="color:var(--red)">실행 실패: '+esc(e.message)+'</div>'}
+  finally{btn.disabled=false;btn.textContent='후보 선택 → 서비스 경계 공격 → 하드닝 재검증'}
 }
-function renderReceipt(r){
-  currentReceipt=r;const e=r.evidence,c=r.deployment_contract,en=r.safe_operating_envelope;
-  const names=['latency_guard','throughput_guard','availability_guard'];
-  const rows=names.map(n=>{const x=e[n];return '<tr class="'+(n===r.selected_policy?'selected':'')+'"><td><b>'+policyLabel(n)+'</b>'+(n===r.selected_policy?' · SELECTED':'')+'</td><td>'+(x.slo_pass?'PASS':'FAIL')+'</td><td>'+pct(x.success_rate)+'</td><td>'+x.p95_ms+'ms</td><td>'+x.throughput_rps+'</td><td>'+x.backend_calls_per_100_success+'</td><td>'+x.shed_requests+'</td></tr>'}).join('');
-  const points=en.points.map(p=>'<div class="point '+(p.slo_pass?'safe':'unsafe')+'"><div class="c">'+p.concurrency+'</div><div class="state">'+(p.slo_pass?'SLO SAFE':'SLO BREACH')+'</div><div class="p">p95 '+p.p95_ms+'ms<br>success '+pct(p.success_rate)+'<br>admitted '+p.admitted_rps+' rps<br>shed '+p.shed_requests+'</div></div>').join('');
-  const reasons=names.filter(n=>n!==r.selected_policy).map(n=>'<div class="reason"><b>'+policyLabel(n)+'</b><br>'+esc(e[n].rejection_reasons.length?e[n].rejection_reasons.join(' · '):'SLO는 통과했지만 compute pressure / p95 / throughput 우선순위에서 미선택')+'</div>').join('');
-  $('receipt').innerHTML=
-    '<div class="receipt-head"><div><div class="receipt-id">DECISION RECEIPT · '+r.workload_fingerprint+'</div><div class="decision '+(r.status==='slo_met'?'pass':'best')+'">'+policyLabel(r.selected_policy)+'</div><div class="why">'+esc(r.why)+'</div></div><span class="badge '+(r.status==='slo_met'?'pass':'best')+'">'+r.status.toUpperCase()+'</span></div>'+
-    '<div class="summary-grid"><div class="summary-cell"><span>MAX VERIFIED CONCURRENCY</span><b>'+(c.max_verified_concurrency??'NONE')+'</b></div><div class="summary-cell"><span>FIRST UNSAFE</span><b>'+(c.first_unsafe_concurrency??'>40')+'</b></div><div class="summary-cell"><span>SCALE BEFORE</span><b>'+(c.scale_before_concurrency??'N/A')+'</b></div></div>'+
-    '<div class="envelope"><div class="subhead"><h3>Measured Safe Operating Envelope</h3><p>동일 policy · concurrency sweep · 실제 serving path</p></div><div class="envelope-track">'+points+'</div></div>'+
-    '<div class="compare"><table><thead><tr><th>POLICY</th><th>SLO</th><th>SUCCESS</th><th>P95</th><th>ADMITTED RPS</th><th>CALLS/100 SUCCESS</th><th>SHED</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
-    '<div class="contract-grid"><div class="panel"><h3>Deployment Contract</h3><div class="code">'+esc(contractText(r))+'</div><button class="copy" id="copyBtn" onclick="copyContract()">COPY CONTRACT</button></div><div class="panel"><h3>왜 다른 정책을 버렸나</h3>'+reasons+'</div></div>';
+function renderBoundary(body){
+  const p=body.service_boundary_proof,s=p.scenarios,h=p.hardening_patch;
+  $('boundaryResult').innerHTML=
+    '<div class="verdict"><div class="verdict-cell '+(p.candidate_service_safe?'safe':'unsafe')+'"><span>CANDIDATE CONFIG</span><b>'+(p.candidate_service_safe?'SERVICE-SAFE':'NOT SERVICE-SAFE')+'</b><small>'+policyLabel(body.selected_policy)+' · '+body.workload_fingerprint+'</small></div><div class="verdict-cell '+(p.hardened_service_safe?'safe':'unsafe')+'"><span>AFTER HARDENING</span><b>'+(p.hardened_service_safe?'SERVICE-SAFE':'STILL UNSAFE')+'</b><small>same candidate + measured service patch</small></div></div>'+
+    '<div class="scenarios"><h3>Service Boundary Proof</h3>'+
+      scenarioRow('healthy','Healthy',s.healthy)+
+      scenarioRow('flash','Flash crowd',s.flash_crowd)+
+      scenarioRow('slow','Slow primary',s.slow_primary)+
+      scenarioRow('deadline','Deadline waste',s.deadline_waste)+
+      scenarioRow('failure','Failure + recovery',s.failure_recovery)+
+    '</div>'+
+    '<div class="patch"><h3>Hardening Patch</h3><div class="patch-line"><div>PRIMARY_TIMEOUT_MS='+h.before_primary_timeout_ms+'</div><div class="arrow">→</div><div>PRIMARY_TIMEOUT_MS='+h.after_primary_timeout_ms+'</div></div><p>'+esc(h.reason)+'. Slow primary를 같은 조건으로 다시 실행한 결과: <b>'+(p.hardened_slow_primary.passed?'PASS':'FAIL')+'</b>, p95 '+p.hardened_slow_primary.p95_ms+'ms / success '+pct(p.hardened_slow_primary.success_rate)+'.</p></div>'+
+    '<div class="contract"><h3>Service-Safe Contract</h3><div class="code">'+esc(contractText(body))+'</div><button class="copy" id="copyBtn" onclick="copyContract()">COPY CONTRACT</button></div>';
+}
+async function runSloCompiler(){
+  $('sloResult').textContent='replay + concurrency sweep 중…';
+  const b=await api('/v1/slo-decision',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({profile:selectedProfile,target_p95_ms:Number($('targetP95').value),min_success_rate:Number($('targetSuccess').value)/100})});
+  const r=b.decision_receipt,e=r.safe_operating_envelope;
+  $('sloResult').textContent='selected='+r.selected_policy+'\nmax_verified_concurrency='+e.max_verified_concurrency+'\nfirst_unsafe_concurrency='+(e.first_unsafe_concurrency??'>40')+'\nconfig='+JSON.stringify(r.selected_config);
 }
 async function traceOne(){const id='trace-'+Date.now().toString(36);$('flightResult').textContent='수집 중…';await api('/v1/predict',{method:'POST',headers:{'content-type':'application/json','x-request-id':id},body:JSON.stringify({text:'synthetic trace proof'})});const f=await api('/ops/flights/'+id);$('flightResult').textContent=f.events.map(e=>'+'+e.at_ms.toFixed(2)+'ms  '+e.stage+'  '+JSON.stringify(e.detail)).join('\n')}
 async function runShadow(){$('shadowResult').textContent='mirror 중…';const b=await api('/v1/shadow-compare',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text:'synthetic shadow proof'})});$('shadowResult').textContent='live='+b.serving_decision+'\nstable='+b.stable.label+' / '+b.stable.latency_ms+'ms\ncandidate='+b.candidate.label+' / '+b.candidate.latency_ms+'ms\ngate='+b.gate+'\nΔscore='+b.score_delta}
