@@ -18,7 +18,7 @@ def test_health_and_prediction():
         assert "slow primary" in demo.text
         build_body = client.get("/ops/build").json()
         assert build_body["app"] == "InferenceRail"
-        assert build_body["version"] == "0.7.0"
+        assert build_body["version"] == "0.8.0"
         assert build_body["backend_mode"] == "mock"
         status_body = client.get("/ops/status").json()
         assert status_body["backend_mode"] == "mock"
@@ -171,10 +171,23 @@ def test_service_boundary_proof_finds_and_hardens_slow_primary():
         assert proof["scenarios"]["failure_recovery"]["passed"] is True
         assert proof["scenarios"]["slow_primary"]["passed"] is False
         assert proof["hardening_patch"]["applied"] is True
+        assert proof["hardening_patch"]["method"] == "measured_timeout_replay"
+        timeout_search = proof["hardening_patch"]["timeout_search"]
+        assert timeout_search["selection_rule"].startswith("largest primary timeout")
+        assert len(timeout_search["trials"]) >= 4
+        assert timeout_search["selected_passed"] is True
         assert (
             proof["hardening_patch"]["after_primary_timeout_ms"]
             < proof["hardening_patch"]["before_primary_timeout_ms"]
         )
+        selected_timeout = proof["hardening_patch"]["after_primary_timeout_ms"]
+        passing_timeouts = [
+            trial["primary_timeout_ms"]
+            for trial in timeout_search["trials"]
+            if trial["passed"]
+        ]
+        assert selected_timeout == max(passing_timeouts)
+        assert "criterion" in proof["scenarios"]["flash_crowd"]
         assert proof["hardened_slow_primary"]["passed"] is True
         assert proof["hardened_service_safe"] is True
         assert (
