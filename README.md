@@ -1,6 +1,6 @@
 # InferenceRail
 
-**SLO를 입력하면 동일 workload를 실제 serving 경로에 replay하고, 안전한 concurrency 경계와 배포 설정까지 Decision Receipt로 발행하는 ML backend gateway입니다.**
+**모델 레벨에서 좋아 보이는 설정이 실제 서비스 요청 경계에서도 안전한지 검증하고, 실패하면 하드닝된 Service-Safe Contract까지 발행하는 ML backend gateway입니다.**
 
 토스뱅크 ML Backend Engineer 지원을 목표로, 단순한 FastAPI 예제가 아니라 **대규모 요청을 받는 모델 서빙 서버에서 실제로 문제가 되는 queue saturation, tail latency, backend timeout, 장애 전파, fallback, observability, autoscaling**을 한 저장소에서 재현하도록 만들었습니다.
 
@@ -18,52 +18,32 @@
 
 ## 공개 데모에서 보는 것
 
-v0.6의 전면 기능은 **SLO-to-Config Compiler**입니다.
+v0.7의 전면 기능은 **Service Boundary Verifier**입니다.
 
-개발자가 `target p95`, `minimum success rate`, traffic profile을 입력하면 다음 순서로 실행합니다.
+InferenceRail은 NVIDIA Triton Model Analyzer 같은 모델-runtime 최적화 도구를 다시 구현하려는 프로젝트가 아닙니다. Model Analyzer는 공식적으로 max batch size, instance count, request concurrency/rate를 탐색하고 latency/throughput/GPU-memory 제약을 적용할 수 있습니다.
 
-1. 동일 workload를 `latency_guard / throughput_guard / availability_guard` 세 정책의 실제 `DynamicBatcher + CircuitBreaker + ResilientBackend` 경로에 replay합니다.
-2. SLO를 통과한 후보 중 `backend calls / 100 successful requests`가 가장 낮은 정책을 선택합니다.
-3. 선택한 정책으로 concurrency `4 / 8 / 16 / 24 / 32 / 40`을 실제 sweep합니다.
-4. **마지막 SLO 통과 지점**, **처음 실패한 지점**, **scale 전에 대응할 지점**을 Measured Safe Operating Envelope로 기록합니다.
-5. 선택한 batch/queue/timeout/breaker 설정과 측정된 concurrency 경계를 하나의 **Deployment Contract**로 발행합니다.
+- NVIDIA Model Analyzer: https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/model_analyzer/README.html
+- Config search: https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/model_analyzer/docs/config_search.html
 
-핵심 차별점은 “서빙 기능이 많다”가 아닙니다. **왜 이 설정으로 배포해야 하는지를 동일 workload의 counterfactual replay와 실제 capacity sweep으로 설명할 수 있다는 것**입니다.
+InferenceRail은 그 **다음 경계**를 검증합니다.
 
-Request Flight Recorder, Shadow model comparison, Kubernetes/Triton/Jaeger 증거는 첫 화면에서 제거하고 개발자용 Deep Dive 영역으로 이동했습니다.
+1. 동일 workload replay로 후보 serving policy를 선택합니다.
+2. 후보 config를 실제 request lifecycle의 다섯 failure boundary에 넣습니다.
+   - Healthy
+   - Flash crowd / overload
+   - Slow-but-alive primary
+   - Client deadline waste
+   - Hard failure → circuit open → fallback → recovery
+3. 후보가 service-level SLO를 깨면 그대로 FAIL로 기록합니다.
+4. 실패 원인에 맞는 hardening patch를 적용합니다.
+5. 같은 failure condition을 다시 실행해 patch가 실제로 회복시켰는지 검증합니다.
+6. 최종적으로 **Service-Safe Contract**를 발행합니다.
 
-### 공개 v0.6 실측 예시
+핵심 주장은 “Model Analyzer보다 더 좋은 model tuner를 만들었다”가 아닙니다.
 
-기본 조건 `flash_crowd / p95 ≤ 250ms / success ≥ 99.5%`에서 공개 Render 데모를 실제 실행했습니다.
+> **모델 레벨의 PASS를 서비스 레벨의 PASS로 착각하지 않고, client deadline부터 recovery까지의 failure boundary를 따로 검증한다.**
 
-- Decision Receipt: `11c1628c98148a1a`
-- selected policy: **Throughput Guard**
-- backend calls / 100 successful requests: **12.5**
-- max verified concurrency: **32**
-- first unsafe concurrency: **40**
-- scale before concurrency: **32**
-
-| Concurrency | 상태 | p95 | Success | Admitted RPS | Shed |
-|---:|---|---:|---:|---:|---:|
-| 4 | SAFE | 60.90ms | 100% | 65.69 | 0 |
-| 8 | SAFE | 59.82ms | 100% | 133.57 | 0 |
-| 16 | SAFE | 119.62ms | 100% | 134.26 | 0 |
-| 24 | SAFE | 179.49ms | 100% | 133.95 | 0 |
-| **32** | **SAFE** | **238.31ms** | **100%** | **134.30** | **0** |
-| **40** | **BREACH** | **242.12ms** | **40%** | **131.74** | **48** |
-
-발행된 runtime config:
-
-```text
-QUEUE_CAPACITY=32
-MAX_BATCH_SIZE=8
-MAX_BATCH_WAIT_MS=12
-REQUEST_TIMEOUT_MS=500
-PRIMARY_TIMEOUT_MS=460
-BREAKER_FAILURE_THRESHOLD=3
-```
-
-원본 요약은 `docs/evidence/slo-compiler-public-v0.6.json`에 보존합니다.
+SLO-to-Config Compiler, Safe Operating Envelope, Request Flight Recorder, Shadow model comparison, Kubernetes/Triton/Jaeger 증거는 Deep Dive에서 확인할 수 있습니다.
 
 ## 한눈에 보기
 
