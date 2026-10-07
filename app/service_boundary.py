@@ -28,7 +28,10 @@ async def run_service_boundary_proof(
         primary_item_ms=6,
     )
     healthy["passed"] = _slo_pass(healthy, target_p95_ms, min_success_rate)
-    healthy["expected_control"] = "normal serving path stays inside SLO"
+    healthy["criterion"] = (
+        f"success >= {min_success_rate:.3f} and p95 <= {target_p95_ms:.0f}ms"
+    )
+    healthy["expected_control"] = "normal serving path stays inside the requested SLO"
 
     flash = await _load_scenario(
         name="flash-crowd",
@@ -44,16 +47,21 @@ async def run_service_boundary_proof(
         and flash["shed_requests"] > 0
         and flash["p95_ms"] <= target_p95_ms
     )
+    flash["criterion"] = (
+        "controlled degradation: explicit 429 shedding, no timeout/unavailable, "
+        f"accepted-request p95 <= {target_p95_ms:.0f}ms"
+    )
     flash["expected_control"] = (
         "shed excess load before hidden queue growth or request timeout"
     )
 
+    slow_primary_base_ms = max(policy["primary_timeout_ms"] + 120, 560)
     slow_primary = await _load_scenario(
         name="slow-primary",
         policy=policy,
         requests=24,
         concurrency=8,
-        primary_base_ms=max(policy["primary_timeout_ms"] + 120, 560),
+        primary_base_ms=slow_primary_base_ms,
         primary_item_ms=10,
     )
     slow_primary["passed"] = _slo_pass(
@@ -61,23 +69,38 @@ async def run_service_boundary_proof(
         target_p95_ms,
         min_success_rate,
     )
+    slow_primary["criterion"] = (
+        f"success >= {min_success_rate:.3f} and p95 <= {target_p95_ms:.0f}ms"
+    )
     slow_primary["expected_control"] = (
         "slow-but-alive primary must not consume the whole client latency budget"
     )
 
-    patched_policy = dict(policy)
     patch_applied = not slow_primary["passed"]
+    timeout_search: dict[str, Any] = {
+        "method": "not_needed",
+        "trials": [],
+        "selected_primary_timeout_ms": policy["primary_timeout_ms"],
+    }
+    patched_policy = dict(policy)
+
     if patch_applied:
-        patched_policy["primary_timeout_ms"] = min(
-            policy["primary_timeout_ms"],
-            max(60, int(target_p95_ms * 0.55)),
+        timeout_search = await _search_primary_timeout(
+            policy=policy,
+            target_p95_ms=target_p95_ms,
+            min_success_rate=min_success_rate,
+            primary_base_ms=slow_primary_base_ms,
         )
+        patched_policy["primary_timeout_ms"] = timeout_search[
+            "selected_primary_timeout_ms"
+        ]
+
     hardened_slow_primary = await _load_scenario(
         name="slow-primary-hardened",
         policy=patched_policy,
         requests=24,
         concurrency=8,
-        primary_base_ms=max(policy["primary_timeout_ms"] + 120, 560),
+        primary_base_ms=slow_primary_base_ms,
         primary_item_ms=10,
     )
     hardened_slow_primary["passed"] = _slo_pass(
@@ -85,10 +108,22 @@ async def run_service_boundary_proof(
         target_p95_ms,
         min_success_rate,
     )
-    hardened_slow_primary["expected_control"] = "fallback inside the service SLO budget"
+    hardened_slow_primary["criterion"] = (
+        f"success >= {min_success_rate:.3f} and p95 <= {target_p95_ms:.0f}ms"
+    )
+    hardened_slow_primary["expected_control"] = (
+        "fallback completes inside the end-to-end service SLO budget"
+    )
 
     deadline_waste = await _deadline_waste_scenario()
+    deadline_waste["criterion"] = (
+        "expired request is removed before model service; wasted model calls == 0"
+    )
     failure_recovery = await _failure_recovery_scenario(patched_policy)
+    failure_recovery["criterion"] = (
+        "circuit opens after failures, primary is skipped while open, "
+        "successful probe restores primary"
+    )
 
     candidate_safe = all(
         item["passed"]
@@ -112,7 +147,7 @@ async def run_service_boundary_proof(
                 "the model-runtime layer"
             ),
             "service_level": (
-                "deadline, admission, queue, load shedding, degraded primary, "
+                "deadline, admission, queue, controlled shedding, degraded primary, "
                 "fallback and recovery"
             ),
         },
@@ -128,21 +163,91 @@ async def run_service_boundary_proof(
         },
         "hardening_patch": {
             "applied": patch_applied,
+            "method": timeout_search["method"],
             "reason": (
-                "candidate primary timeout consumed too much of the end-to-end SLO"
+                "candidate primary timeout consumed too much of the end-to-end SLO; "
+                "replayed timeout candidates and selected the largest value that "
+                "still passed the same slow-primary boundary"
                 if patch_applied
                 else "candidate already passed the slow-primary service boundary"
             ),
             "before_primary_timeout_ms": policy["primary_timeout_ms"],
             "after_primary_timeout_ms": patched_policy["primary_timeout_ms"],
+            "timeout_search": timeout_search,
         },
         "hardened_slow_primary": hardened_slow_primary,
         "hardened_service_safe": hardened_safe,
         "service_safe_contract": patched_policy,
         "proof_rule": (
             "model-level PASS is not treated as service-level PASS until every "
-            "request-lifecycle boundary is exercised"
+            "request-lifecycle boundary is exercised against its explicit invariant"
         ),
+    }
+
+
+async def _search_primary_timeout(
+    *,
+    policy: dict[str, int],
+    target_p95_ms: float,
+    min_success_rate: float,
+    primary_base_ms: float,
+) -> dict[str, Any]:
+    raw_candidates = [
+        60,
+        int(target_p95_ms * 0.35),
+        int(target_p95_ms * 0.45),
+        int(target_p95_ms * 0.55),
+        int(target_p95_ms * 0.70),
+        int(target_p95_ms * 0.85),
+        policy["primary_timeout_ms"],
+    ]
+    candidates = sorted(
+        {
+            max(40, min(policy["primary_timeout_ms"], value))
+            for value in raw_candidates
+            if value > 0
+        }
+    )
+
+    trials: list[dict[str, Any]] = []
+    passing: list[dict[str, Any]] = []
+    for timeout_ms in candidates:
+        candidate_policy = dict(policy)
+        candidate_policy["primary_timeout_ms"] = timeout_ms
+        result = await _load_scenario(
+            name=f"slow-primary-timeout-{timeout_ms}",
+            policy=candidate_policy,
+            requests=24,
+            concurrency=8,
+            primary_base_ms=primary_base_ms,
+            primary_item_ms=10,
+        )
+        passed = _slo_pass(result, target_p95_ms, min_success_rate)
+        trial = {
+            "primary_timeout_ms": timeout_ms,
+            "passed": passed,
+            "p95_ms": result["p95_ms"],
+            "success_rate": result["success_rate"],
+            "fallback_requests": result["fallback_requests"],
+            "primary_timeouts": result["primary_timeouts"],
+        }
+        trials.append(trial)
+        if passed:
+            passing.append(trial)
+
+    selected = (
+        max(passing, key=lambda item: item["primary_timeout_ms"])
+        if passing
+        else min(trials, key=lambda item: (item["p95_ms"], -item["success_rate"]))
+    )
+    return {
+        "method": "measured_timeout_replay",
+        "selection_rule": (
+            "largest primary timeout that still satisfies the same end-to-end SLO"
+        ),
+        "trials": trials,
+        "selected_primary_timeout_ms": selected["primary_timeout_ms"],
+        "selected_passed": selected["passed"],
     }
 
 
