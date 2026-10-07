@@ -1,125 +1,88 @@
 # InferenceRail
 
-**모델 레벨에서 좋아 보이는 설정이 실제 서비스 요청 경계에서도 안전한지 검증하고, 실패하면 하드닝된 Service-Safe Contract까지 발행하는 ML backend gateway입니다.**
+**모델 레벨에서 좋아 보이는 설정이 실제 서비스 요청 경계에서도 안전한지 검증하고, 실패하면 measured hardening을 거쳐 Service-Safe Contract까지 발행하는 ML backend gateway입니다.**
 
-토스뱅크 ML Backend Engineer 지원을 목표로, 단순한 FastAPI 예제가 아니라 **대규모 요청을 받는 모델 서빙 서버에서 실제로 문제가 되는 queue saturation, tail latency, backend timeout, 장애 전파, fallback, observability, autoscaling**을 한 저장소에서 재현하도록 만들었습니다.
+토스뱅크 ML Backend Engineer 지원을 목표로, 모델 runtime 최적화와 그 바깥의 **client deadline, queue saturation, overload shedding, slow primary, circuit breaker, fallback, recovery**를 명확히 분리해 검증합니다.
 
-> 기본 공개 데모 backend는 deterministic mock입니다. 모델 정확도를 꾸미는 프로젝트가 아니라 서버 구조의 특성을 반복 측정하기 위한 선택입니다. 실제 모델 서버 경계는 `BACKEND_MODE=triton`으로 분리했고, 빠른 contract stub 회귀 테스트와 별도로 **NVIDIA Triton Inference Server 2.73.0(26.09) 실제 컨테이너를 CPU Python backend로 기동해 gateway → Triton 경로까지 검증**했습니다.
+> 공개 브라우저 데모의 failure-boundary replay는 deterministic mock으로 반복 가능하게 만들었고, 별도 CI에서는 **실제 NVIDIA Triton Inference Server 2.73.0** 경로에 slow response와 HTTP 503을 주입해 timeout/fallback/breaker/recovery까지 실제 HTTP 경로로 검증했습니다.
 
 ## 바로 확인하기
 
-- **공개 데모:** https://inference-rail-demo.onrender.com
-- **일반 CI + Docker smoke:** https://github.com/sokldjs554/inference-rail/actions/runs/37452240156
-- **Kubernetes HPA/KEDA runtime:** https://github.com/sokldjs554/inference-rail/actions/runs/37451336671
-- **실제 NVIDIA Triton runtime:** https://github.com/sokldjs554/inference-rail/actions/runs/37450818648
-- **Compose observability runtime:** https://github.com/sokldjs554/inference-rail/actions/runs/37452240152
+- **권장 공개 데모 (CDN 정적 UI):** https://inference-rail-demo-ui.onrender.com
+- **Backend API / direct demo:** https://inference-rail-demo.onrender.com
+- **일반 CI + Docker smoke:** https://github.com/sokldjs554/inference-rail/actions/runs/37601227858
+- **실제 Triton + Service Boundary runtime:** https://github.com/sokldjs554/inference-rail/actions/runs/37601227979
+- **Kubernetes HPA/KEDA runtime:** https://github.com/sokldjs554/inference-rail/actions/runs/37601227884
+- **Compose observability runtime:** https://github.com/sokldjs554/inference-rail/actions/runs/37601227931
 
-공개 데모는 Render Singapore에서 `BACKEND_MODE=mock`으로 운영합니다. 배포 후 외부 브라우저에서 `/`, `/health/ready`, `/ops/build`, `/ops/status`를 확인했고, 데모의 `정상 요청` 버튼을 실제 클릭해 **HTTP 200 / primary-model / fallback=false** 응답까지 검증했습니다.
+정적 UI는 Render CDN에서 즉시 제공하고, 페이지가 열리면 뒤에서 backend를 미리 깨웁니다. 따라서 backend cold start가 있더라도 첫 화면과 프로젝트 설명은 즉시 볼 수 있습니다.
 
 ## 공개 데모에서 보는 것
 
-v0.8의 전면 기능은 **Service Boundary Verifier**입니다.
+v0.9의 전면 기능은 **Service Boundary Verifier**입니다.
 
-InferenceRail은 NVIDIA Triton Model Analyzer 같은 모델-runtime 최적화 도구를 다시 구현하려는 프로젝트가 아닙니다. Model Analyzer는 공식적으로 max batch size, instance count, request concurrency/rate를 탐색하고 latency/throughput/GPU-memory 제약을 적용할 수 있습니다.
+InferenceRail은 NVIDIA Triton Model Analyzer 같은 model-runtime optimizer를 다시 구현하려는 프로젝트가 아닙니다. Model Analyzer가 batch / instance / request concurrency / latency / throughput / GPU memory 최적화를 담당한다면, InferenceRail은 그 **다음 서비스 경계**를 검증합니다.
 
-- NVIDIA Model Analyzer: https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/model_analyzer/README.html
-- Config search: https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/model_analyzer/docs/config_search.html
-
-InferenceRail은 그 **다음 경계**를 검증합니다.
-
-1. 동일 workload replay로 후보 serving policy를 선택합니다.
-2. 후보 config를 실제 request lifecycle의 다섯 failure boundary에 넣습니다.
+1. AUTO SELECT로 후보 serving policy를 고르거나, **MY CONFIG에 현재 운영 설정을 직접 붙여 넣습니다.**
+2. 후보 config를 실제 request lifecycle의 다섯 경계에 넣습니다.
    - Healthy
-   - Flash crowd / overload
+   - Flash crowd / controlled shedding
    - Slow-but-alive primary
    - Client deadline waste
    - Hard failure → circuit open → fallback → recovery
-3. 후보가 service-level SLO를 깨면 그대로 FAIL로 기록합니다.
-4. 실패 원인에 맞는 hardening patch를 적용합니다.
-5. 같은 failure condition을 다시 실행해 patch가 실제로 회복시켰는지 검증합니다.
-6. 최종적으로 **Service-Safe Contract**를 발행합니다.
+3. boundary가 깨지면 같은 failure condition에 여러 hardening 값을 실제 replay합니다.
+4. SLO를 통과하는 값 중 가장 느슨한 값(예: primary timeout)을 선택해 primary에 최대한 기회를 남깁니다.
+5. 최종 결과를 **Service-Safe Contract**와 다운로드 가능한 **proof.json**으로 발행합니다.
+6. main proof가 끝나면 Request Flight Recorder도 자동 실행해 request-level timestamp를 함께 남깁니다.
 
-핵심 주장은 “Model Analyzer보다 더 좋은 model tuner를 만들었다”가 아닙니다.
+### 공개 v0.9 custom-config 실측
 
-> **모델 레벨의 PASS를 서비스 레벨의 PASS로 착각하지 않고, client deadline부터 recovery까지의 failure boundary를 따로 검증한다.**
-
-SLO-to-Config Compiler, Safe Operating Envelope, Request Flight Recorder, Shadow model comparison, Kubernetes/Triton/Jaeger 증거는 Deep Dive에서 확인할 수 있습니다.
-
-### 공개 v0.8 Service Boundary Proof 실측
-
-공개 Render 데모에서 `flash_crowd / p95 ≤ 250ms / success ≥ 99.5%` 기본 조건으로 실행했습니다.
-
-| Scenario | 후보 결과 | 핵심 측정 |
-|---|---|---|
-| Healthy | PASS | p95 59.68ms / success 100% |
-| Flash crowd | PASS | p95 237.80ms / shed 32 / timeout 0 |
-| **Slow primary** | **FAIL** | **p95 481.97ms / fallback 24** |
-| Deadline waste | PASS | expired-before-model 1 / wasted model call 0 |
-| Failure + recovery | PASS | breaker open → closed / fallback 4 |
-
-후보 `Throughput Guard`는 모델/정상 부하 기준으로는 좋은 설정이었지만 slow-primary 경계에서 service SLO를 위반했습니다.
-
-따라서 고정 비율로 timeout을 정하지 않고 같은 slow-primary 조건에 여러 `PRIMARY_TIMEOUT_MS` 후보를 실제 replay했습니다. **SLO를 만족하는 값 중 가장 큰 timeout**을 선택해 primary에 가능한 한 많은 기회를 남기면서 end-to-end SLO를 지키도록 했습니다.
-
-- 각 timeout 후보의 p95 / success / fallback 결과를 Decision Evidence로 보존
-- 선택된 timeout을 동일 failure condition에 다시 적용
-- hardened result가 모든 service-boundary invariant를 통과해야만 **SERVICE-SAFE**로 판정
-
-를 확인했습니다.
-
-최종 Service-Safe Contract:
+MY CONFIG에 다음 설정을 붙여 넣고 `PRIMARY_TIMEOUT_MS=300`으로 검증했습니다.
 
 ```text
 QUEUE_CAPACITY=32
 MAX_BATCH_SIZE=8
 MAX_BATCH_WAIT_MS=12
 REQUEST_TIMEOUT_MS=500
-PRIMARY_TIMEOUT_MS=<measured timeout replay 결과>
+PRIMARY_TIMEOUT_MS=300
 BREAKER_FAILURE_THRESHOLD=3
 ```
 
-원본 측정 요약은 `docs/evidence/service-boundary-public-v0.8.json`에 보존합니다.
+결과:
 
-
-따라서 고정 비율로 timeout을 정하지 않고 같은 slow-primary 조건에 여러 `PRIMARY_TIMEOUT_MS` 후보를 실제 replay했습니다. **SLO를 만족하는 값 중 가장 큰 timeout**을 선택해 primary에 가능한 한 많은 기회를 남기면서 end-to-end SLO를 지키도록 했습니다.
-
-공개 v0.8 실측:
-
-| PRIMARY_TIMEOUT_MS | 결과 | p95 | Success |
-|---:|---|---:|---:|
-| 60 | PASS | 82.02ms | 100% |
-| 87 | PASS | 109.12ms | 100% |
-| 112 | PASS | 134.19ms | 100% |
-| 137 | PASS | 159.16ms | 100% |
-| 175 | PASS | 197.69ms | 100% |
-| **212** | **PASS / SELECTED** | **234.41ms** | **100%** |
-| 460 | FAIL | 482.12ms | 100% |
-
-선택한 212ms를 동일 failure condition에 다시 적용한 결과 p95 **234.35ms / success 100%**로 통과했습니다.
-
-최종 Service-Safe Contract:
-
-```text
-QUEUE_CAPACITY=32
-MAX_BATCH_SIZE=8
-MAX_BATCH_WAIT_MS=12
-REQUEST_TIMEOUT_MS=500
-PRIMARY_TIMEOUT_MS=212
-BREAKER_FAILURE_THRESHOLD=3
-```
-
-원본 측정 요약은 `docs/evidence/service-boundary-public-v0.8.json`에 보존합니다.
+- candidate source: **custom_config**
+- candidate: **NOT SERVICE-SAFE**
+- Slow primary: p95 약 **323ms** → FAIL
+- measured timeout replay: 60 / 87 / 112 / 137 / 175 / **212** PASS, 300 FAIL
+- selected timeout: **212ms**
+- hardened slow primary: p95 약 **234ms / success 100%**
+- final: **SERVICE-SAFE**
+- proof export: `inference-rail-proof-<workload fingerprint>.json`
 
 ### PASS의 의미를 하나로 뭉개지 않습니다
 
-Service Boundary Verifier의 각 시나리오는 서로 다른 실패 경계를 검증하므로 PASS 기준도 명시적으로 다릅니다.
+각 scenario는 서로 다른 failure boundary를 검증하므로 PASS 기준도 다릅니다.
 
-- **Healthy / Slow primary:** 입력한 success rate + p95 SLO를 동시에 만족
-- **Flash crowd:** accepted request의 p95가 SLO 안에 있고, timeout/unavailable 없이 excess load가 명시적인 429 shedding으로 제한되는 controlled degradation
-- **Deadline waste:** client deadline이 지난 요청이 model call 전에 제거되고 wasted model call이 0
-- **Failure + recovery:** breaker open 동안 primary call이 0이고 fallback 후 recovery probe로 closed 복귀
+- **Healthy / Slow primary:** 입력한 success rate + p95 SLO 동시 만족
+- **Flash crowd:** user-success SLO가 아니라 **controlled degradation invariant** — timeout/unavailable 없이 excess load가 명시적 429로 제한되고 accepted-request p95가 SLO 안에 유지
+- **Deadline waste:** client deadline 이후 model call이 발생하지 않아 wasted model call = 0
+- **Failure + recovery:** breaker open 동안 primary call = 0, fallback 처리 후 recovery probe로 closed 복귀
 
-즉 overload에서 429가 존재한다고 이를 99.5% user-success SLO 통과라고 표현하지 않습니다. **“SLO PASS”와 “boundary invariant PASS”를 분리**해 보여줍니다.
+## 실제 Triton Service Boundary Runtime
+
+GitHub Actions에서 NVIDIA 공식 Triton 2.73.0 CPU runtime을 실제 기동하고, InferenceRail과 Triton 사이에 test-only network fault proxy를 두어 실제 HTTP 경로를 검증했습니다.
+
+- Healthy: **Triton backend**, fallback=false
+- Slow response 주입: primary timeout 발생 → **fallback=true**
+- Slow condition 제거 후 recovery: 다시 **Triton backend**
+- HTTP 503 3회 주입: breaker **open**
+- breaker open 상태의 정상 요청: proxy request count가 **3 → 3으로 그대로**여서 primary를 실제로 건드리지 않음을 확인
+- recovery window 후 probe: **Triton backend / breaker closed**
+- 최종 runtime: primary failures 3 / primary timeout 1 / fallback failures 0
+
+Action: https://github.com/sokldjs554/inference-rail/actions/runs/37601227979  
+Artifact: `triton-real-runtime-evidence` (service-boundary summary 포함)
+
 
 ## 한눈에 보기
 
@@ -151,7 +114,7 @@ CPU HPA or queue-saturation KEDA scaling
 
 | 검증 | 결과 |
 |---|---:|
-| Python tests | **14 / 14 pass** |
+| Python tests | **service-boundary/custom-config 포함 pass** |
 | Triton V2 contract E2E | **8 requests / batch size 8 / fallback 0** |
 | Circuit breaker | **3회 primary 실패 → open → fallback → recovery 후 closed** |
 | 강제 overload | **60건 중 57건 429, 3건 정상 admission** |
@@ -162,7 +125,8 @@ CPU HPA or queue-saturation KEDA scaling
 | SLO gate | **pass** |
 | GitHub Actions | **lint + release verification + Docker build + container smoke pass** |
 | Render 공개 배포 | **live / revision 일치 / browser predict pass** |
-| 실제 NVIDIA Triton Server | **2.73.0 / direct V2 batch 4 / gateway batch 8 / fallback 0** |
+| 실제 NVIDIA Triton Server | **2.73.0 / direct + gateway runtime pass** |
+| 실제 Triton Service Boundary | **slow→fallback / 503×3→open / open 중 primary skip / recovery→Triton pass** |
 | kind Kubernetes 1.37 rollout | **pass** |
 | Metrics Server + CPU HPA | **실제 2 → 6 replicas scale-out** |
 | Prometheus + KEDA | **실제 2 → 3 replicas scale-out** |

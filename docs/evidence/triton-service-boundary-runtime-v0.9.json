@@ -1,0 +1,43 @@
+{
+  "verified_at": "2026-10-07T09:34:05Z",
+  "action_run": "https://github.com/sokldjs554/inference-rail/actions/runs/37601227979",
+  "artifact_id": 11472648026,
+  "artifact_sha256": "6b9568a8c11599b249759c990945b143550d0a628956c641df0a8dbc55a13877",
+  "revision": "d590ad679213a6d212fb122154aee420bff9a156",
+  "triton_release": "2.73.0",
+  "path": "InferenceRail -> chaos proxy -> real NVIDIA Triton Server",
+  "healthy": {
+    "backend": "triton:text_classifier",
+    "fallback_used": false,
+    "service_ms": 76.08
+  },
+  "slow_primary": {
+    "injected_delay_ms": 600,
+    "gateway_primary_timeout_ms": 200,
+    "backend": "fallback-model",
+    "fallback_used": true,
+    "service_ms": 219.51,
+    "primary_timeouts": 1
+  },
+  "recovered_after_slow": {
+    "backend": "triton:text_classifier",
+    "fallback_used": false,
+    "service_ms": 24.34
+  },
+  "hard_failure": {
+    "injected_http_503": 3,
+    "breaker_state": "open",
+    "primary_failures": 3,
+    "proxy_requests_before_open_probe": 3,
+    "proxy_requests_after_open_probe": 3,
+    "healthy_while_open_backend": "fallback-model",
+    "primary_skipped_while_open": true
+  },
+  "recovery": {
+    "backend": "triton:text_classifier",
+    "fallback_used": false,
+    "service_ms": 23.66,
+    "breaker_state": "closed",
+    "fallback_failures": 0
+  }
+}
