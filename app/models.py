@@ -29,6 +29,10 @@ class SLODecisionRequest(PolicyLabRequest):
     min_success_rate: float = Field(default=0.995, ge=0.5, le=1.0)
 
 
+class ServiceBoundaryRequest(SLODecisionRequest):
+    pass
+
+
 class RuntimeStatus(BaseModel):
     backend_mode: str
     queue_depth: int

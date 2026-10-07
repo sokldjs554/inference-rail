@@ -22,6 +22,7 @@ from app.core.batcher import DynamicBatcher, QueueFullError
 from app.core.circuit_breaker import CircuitBreaker
 from app.core.slo_governor import choose_serving_policy
 from app.flight_recorder import FlightRecorder
+from app.service_boundary import run_service_boundary_proof
 from app.metrics import (
     BATCH_SIZE,
     CIRCUIT_STATE,
@@ -40,6 +41,7 @@ from app.models import (
     PredictResponse,
     RuntimeStatus,
     SLODecisionRequest,
+    ServiceBoundaryRequest,
 )
 from app.telemetry import configure_telemetry
 
@@ -299,6 +301,43 @@ async def policy_lab(payload: PolicyLabRequest) -> dict[str, Any]:
         "winner_for_this_run": winner,
         "reason": "highest success rate, then lower p95 and higher admitted throughput",
         "note": "isolated synthetic trial using the same batcher and resilience code path",
+    }
+
+
+@app.post("/v1/service-boundary-proof")
+async def service_boundary_proof(payload: ServiceBoundaryRequest) -> dict[str, Any]:
+    traffic = _traffic_profile(payload.profile)
+    results = {}
+    for name, policy in _candidate_policies().items():
+        results[name] = await _run_policy_trial(
+            name=f"boundary-candidate-{name}",
+            policy=policy,
+            traffic=traffic,
+        )
+    receipt = choose_serving_policy(
+        profile=payload.profile,
+        traffic=traffic,
+        results=results,
+        target_p95_ms=payload.target_p95_ms,
+        min_success_rate=payload.min_success_rate,
+    )
+    proof = await run_service_boundary_proof(
+        policy_name=receipt["selected_policy"],
+        policy=receipt["selected_config"],
+        target_p95_ms=payload.target_p95_ms,
+        min_success_rate=payload.min_success_rate,
+    )
+    return {
+        "profile": payload.profile,
+        "objective": receipt["objective"],
+        "workload_fingerprint": receipt["workload_fingerprint"],
+        "selected_policy": receipt["selected_policy"],
+        "selected_config": receipt["selected_config"],
+        "service_boundary_proof": proof,
+        "note": (
+            "candidate config is selected under replay, then attacked at request-"
+            "lifecycle boundaries that model-level profilers do not cover"
+        ),
     }
 
 
