@@ -18,7 +18,7 @@ def test_health_and_prediction():
         assert "CALLS/100 SUCCESS" in demo.text
         build_body = client.get("/ops/build").json()
         assert build_body["app"] == "InferenceRail"
-        assert build_body["version"] == "0.6.0"
+        assert build_body["version"] == "0.7.0"
         assert build_body["backend_mode"] == "mock"
         status_body = client.get("/ops/status").json()
         assert status_body["backend_mode"] == "mock"
@@ -139,3 +139,45 @@ def test_slo_governor_emits_decision_receipt():
         contract = receipt["deployment_contract"]
         assert contract["runtime_config"] == receipt["selected_config"]
         assert contract["evidence_basis"].startswith("measured concurrency sweep")
+
+
+def test_service_boundary_proof_finds_and_hardens_slow_primary():
+    with TestClient(app) as client:
+        response = client.post(
+            "/v1/service-boundary-proof",
+            json={
+                "profile": "flash_crowd",
+                "target_p95_ms": 250,
+                "min_success_rate": 0.995,
+            },
+        )
+        assert response.status_code == 200
+        body = response.json()
+        proof = body["service_boundary_proof"]
+        assert proof["candidate_policy"] in {
+            "latency_guard",
+            "throughput_guard",
+            "availability_guard",
+        }
+        assert set(proof["scenarios"]) == {
+            "healthy",
+            "flash_crowd",
+            "slow_primary",
+            "deadline_waste",
+            "failure_recovery",
+        }
+        assert proof["scenarios"]["healthy"]["passed"] is True
+        assert proof["scenarios"]["deadline_waste"]["passed"] is True
+        assert proof["scenarios"]["failure_recovery"]["passed"] is True
+        assert proof["scenarios"]["slow_primary"]["passed"] is False
+        assert proof["hardening_patch"]["applied"] is True
+        assert (
+            proof["hardening_patch"]["after_primary_timeout_ms"]
+            < proof["hardening_patch"]["before_primary_timeout_ms"]
+        )
+        assert proof["hardened_slow_primary"]["passed"] is True
+        assert proof["hardened_service_safe"] is True
+        assert (
+            proof["service_safe_contract"]["primary_timeout_ms"]
+            == proof["hardening_patch"]["after_primary_timeout_ms"]
+        )
