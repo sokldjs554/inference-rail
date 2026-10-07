@@ -75,7 +75,7 @@ details{border-top:1px solid var(--line)}details:last-child{border-bottom:1px so
     <div class="eyebrow">MODEL-SAFE ≠ SERVICE-SAFE</div>
     <h1>모델이 빠르다고<br>서비스가 안전한 건 아닙니다.</h1>
     <p class="lead"><b>InferenceRail</b>은 모델 runtime의 batch/concurrency 최적화를 다시 만드는 도구가 아닙니다. 그 다음 단계인 <b>client deadline, queue saturation, flash crowd, slow primary, fallback, recovery</b>까지 실제 요청 경로로 공격해 서비스가 SLO를 지키는지 검증합니다.</p>
-    <div class="line"><b>강점:</b> 후보 config가 모델 레벨에서 좋아 보여도 서비스 경계에서 깨지면 그 실패를 그대로 보여주고, 어떤 timeout·admission 설정을 바꿔야 하는지 다시 검증해 <b>Service-Safe Contract</b>를 발행합니다.</div>
+    <div class="line"><b>강점:</b> 후보 config가 모델 레벨에서 좋아 보여도 서비스 경계에서 깨지면 그 실패를 그대로 보여줍니다. hardening 값도 비율로 찍지 않고 <b>같은 failure condition을 여러 설정으로 다시 replay</b>해 통과 근거가 있는 Service-Safe Contract만 발행합니다.</div>
     <div class="hero-actions">
       <button class="primary" onclick="runFromHero()">서비스 경계 검증 실행</button>
       <button class="secondary" onclick="document.getElementById('difference').scrollIntoView()">왜 Model Analyzer와 다른가</button>
@@ -100,7 +100,7 @@ details{border-top:1px solid var(--line)}details:last-child{border-bottom:1px so
 </section>
 
 <section class="section" id="verifier">
-  <div class="section-head"><div class="section-no">01 / WEAPON</div><div><h2>Service Boundary Proof — 후보 설정을 실제 실패 경계에 넣습니다.</h2><p>먼저 동일 workload replay로 후보 serving policy를 고른 뒤, 그 config를 healthy / flash crowd / slow primary / deadline waste / hard failure & recovery 조건에 넣습니다. 하나라도 실패하면 서비스 안전으로 간주하지 않습니다.</p></div></div>
+  <div class="section-head"><div class="section-no">01 / WEAPON</div><div><h2>Service Boundary Proof — 후보 설정을 실제 실패 경계에 넣습니다.</h2><p>먼저 동일 workload replay로 후보 serving policy를 고른 뒤, 그 config를 healthy / flash crowd / slow primary / deadline waste / hard failure & recovery 조건에 넣습니다. 각 경계는 같은 의미의 PASS가 아닙니다. Healthy/Slow primary는 end-to-end SLO, Flash crowd는 controlled degradation, Deadline waste는 wasted model call=0, Recovery는 breaker/fallback 복구 invariant를 각각 검증합니다.</p></div></div>
   <div class="verifier">
     <aside class="controls">
       <div class="label">WORKLOAD</div>
@@ -111,7 +111,7 @@ details{border-top:1px solid var(--line)}details:last-child{border-bottom:1px so
       </div>
       <div class="field"><div class="label">TARGET P95 (ms)</div><input id="targetP95" type="number" value="250" min="50" max="2000"></div>
       <div class="field"><div class="label">MIN SUCCESS RATE (%)</div><input id="targetSuccess" type="number" value="99.5" min="50" max="100" step="0.1"></div>
-      <button class="run" id="runBtn" onclick="runBoundary()">후보 선택 → 서비스 경계 공격 → 하드닝 재검증</button>
+      <button class="run" id="runBtn" onclick="runBoundary()">후보 선택 → 경계 공격 → hardening replay search</button>
       <p class="note">공개 데모는 deterministic synthetic workload입니다. Model Analyzer 결과를 실제로 가져왔다고 주장하지 않으며, model-runtime 최적화와 service-level 검증의 책임 경계를 분리해 보여줍니다.</p>
     </aside>
     <main class="proof-area" id="boundaryResult"><div class="empty">실행하면 후보 config가 서비스 경계에서<br><b>왜 실패하는지와 어떤 patch로 회복하는지</b>를 확인할 수 있습니다.</div></main>
@@ -134,7 +134,7 @@ details{border-top:1px solid var(--line)}details:last-child{border-bottom:1px so
   <details><summary>Runtime proof <small>Kubernetes · KEDA · Triton · Jaeger</small></summary><div class="detail"><div class="proofs"><div class="proof"><span>HPA</span><b>2 → 6</b><small>kind 1.37 실제 scale-out</small></div><div class="proof"><span>KEDA</span><b>2 → 3</b><small>Prometheus queue metric</small></div><div class="proof"><span>TRITON</span><b>2.73.0</b><small>실제 NVIDIA Triton Server</small></div><div class="proof"><span>OTEL</span><b>TRACE OK</b><small>Jaeger inference trace</small></div></div></div></details>
 </section>
 
-<footer class="footer"><span>INFERENCERAIL · v0.7 · SERVICE BOUNDARY VERIFIER</span><span>SYNTHETIC WORKLOAD · NO REAL FINANCIAL DECISION</span></footer>
+<footer class="footer"><span>INFERENCERAIL · v0.8 · SERVICE BOUNDARY VERIFIER</span><span>SYNTHETIC WORKLOAD · NO REAL FINANCIAL DECISION</span></footer>
 </div>
 
 <script>
@@ -171,17 +171,17 @@ function scenarioRow(name,label,x){
   if(x.expired_before_service!==undefined)details.push('expired-before-model '+x.expired_before_service);
   if(x.wasted_model_calls!==undefined)details.push('wasted-model-calls '+x.wasted_model_calls);
   if(x.open_state!==undefined)details.push('breaker '+x.open_state+' → '+x.recovered_state);
-  return '<div class="scenario"><div class="scenario-name">'+label+'</div><div class="state '+(x.passed?'pass':'fail')+'">'+(x.passed?'PASS':'FAIL')+'</div><div class="scenario-detail">'+details.join(' · ')+'<br>'+esc(x.expected_control||'')+'</div></div>';
+  return '<div class="scenario"><div class="scenario-name">'+label+'</div><div class="state '+(x.passed?'pass':'fail')+'">'+(x.passed?'PASS':'FAIL')+'</div><div class="scenario-detail">'+details.join(' · ')+'<br><b>criterion:</b> '+esc(x.criterion||'')+'<br>'+esc(x.expected_control||'')+'</div></div>';
 }
 async function runBoundary(){
-  const btn=$('runBtn');btn.disabled=true;btn.textContent='SERVICE BOUNDARY 공격 중…';$('boundaryResult').innerHTML='<div class="empty">후보 policy를 고른 뒤 request lifecycle 경계를 실제로 재현하고 있습니다…</div>';
+  const btn=$('runBtn');btn.disabled=true;btn.textContent='BOUNDARY + HARDENING SEARCH 실행 중…';$('boundaryResult').innerHTML='<div class="empty">후보 policy를 고른 뒤 request lifecycle 경계를 실제로 재현하고 있습니다…</div>';
   try{
     const body=await api('/v1/service-boundary-proof',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({
       profile:selectedProfile,target_p95_ms:Number($('targetP95').value),min_success_rate:Number($('targetSuccess').value)/100
     })});
     lastContract=body;renderBoundary(body);
   }catch(e){$('boundaryResult').innerHTML='<div class="empty" style="color:var(--red)">실행 실패: '+esc(e.message)+'</div>'}
-  finally{btn.disabled=false;btn.textContent='후보 선택 → 서비스 경계 공격 → 하드닝 재검증'}
+  finally{btn.disabled=false;btn.textContent='후보 선택 → 경계 공격 → hardening replay search'}
 }
 function renderBoundary(body){
   const p=body.service_boundary_proof,s=p.scenarios,h=p.hardening_patch;
@@ -194,7 +194,7 @@ function renderBoundary(body){
       scenarioRow('deadline','Deadline waste',s.deadline_waste)+
       scenarioRow('failure','Failure + recovery',s.failure_recovery)+
     '</div>'+
-    '<div class="patch"><h3>Hardening Patch</h3><div class="patch-line"><div>PRIMARY_TIMEOUT_MS='+h.before_primary_timeout_ms+'</div><div class="arrow">→</div><div>PRIMARY_TIMEOUT_MS='+h.after_primary_timeout_ms+'</div></div><p>'+esc(h.reason)+'. Slow primary를 같은 조건으로 다시 실행한 결과: <b>'+(p.hardened_slow_primary.passed?'PASS':'FAIL')+'</b>, p95 '+p.hardened_slow_primary.p95_ms+'ms / success '+pct(p.hardened_slow_primary.success_rate)+'.</p></div>'+
+    '<div class="patch"><h3>Hardening Patch</h3><div class="patch-line"><div>PRIMARY_TIMEOUT_MS='+h.before_primary_timeout_ms+'</div><div class="arrow">→</div><div>PRIMARY_TIMEOUT_MS='+h.after_primary_timeout_ms+'</div></div><p>'+esc(h.reason)+'. <b>method:</b> '+esc(h.method)+'. 같은 slow-primary 조건에 timeout 후보를 실제 replay하고 SLO를 만족한 값 중 가장 큰 timeout을 선택했습니다. 선택 timeout '+h.after_primary_timeout_ms+'ms, 재검증 결과 <b>'+(p.hardened_slow_primary.passed?'PASS':'FAIL')+'</b>, p95 '+p.hardened_slow_primary.p95_ms+'ms / success '+pct(p.hardened_slow_primary.success_rate)+'.</p><div class="result">'+esc((h.timeout_search.trials||[]).map(t=>'timeout '+t.primary_timeout_ms+'ms → '+(t.passed?'PASS':'FAIL')+' / p95 '+t.p95_ms+'ms / success '+pct(t.success_rate)).join('\n'))+'</div></div>'+
     '<div class="contract"><h3>Service-Safe Contract</h3><div class="code">'+esc(contractText(body))+'</div><button class="copy" id="copyBtn" onclick="copyContract()">COPY CONTRACT</button></div>';
 }
 async function runSloCompiler(){
